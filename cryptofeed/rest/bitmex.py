@@ -35,7 +35,8 @@ class Bitmex(API):
     ID = BITMEX
     api = 'https://www.bitmex.com'
 
-    def _generate_signature(self, verb: str, url: str, data='') -> dict:
+    @staticmethod
+    def generate_signature(verb: str, url: str, data='', key_id=None, key_secret=None) -> dict:
         """
         verb: GET/POST/PUT
         url: api endpoint
@@ -53,10 +54,10 @@ class Bitmex(API):
 
         message = verb + path + str(expires) + data
 
-        signature = hmac.new(bytes(self.key_secret, 'utf8'), bytes(message, 'utf8'), digestmod=hashlib.sha256).hexdigest()
+        signature = hmac.new(bytes(key_secret, 'utf8'), bytes(message, 'utf8'), digestmod=hashlib.sha256).hexdigest()
         return {
             "api-expires": str(expires),
-            "api-key": self.key_id,
+            "api-key": key_id,
             "api-signature": signature
         }
 
@@ -79,7 +80,7 @@ class Bitmex(API):
                 endpoint = f'/api/v1/{ep}?symbol={symbol}&reverse=true'
             header = {}
             if self.key_id and self.key_secret:
-                header = self._generate_signature("GET", endpoint)
+                header = self.generate_signature("GET", endpoint, key_id=self.key_id, key_secret=self.key_secret)
             header['Accept'] = 'application/json'
             return requests.get('{}{}'.format(self.api, endpoint), headers=header)
 
