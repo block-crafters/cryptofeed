@@ -193,6 +193,10 @@ class FeedHandler:
                     # connection was successful, reset retry count and delay
                     retries = 0
                     delay = 1
+
+                    if feed.use_private_channels:
+                        await feed.authenticate(websocket)
+
                     await feed.subscribe(websocket)
                     await self._handler(websocket, feed.message_handler, feed.uuid)
             except (ConnectionClosed, ConnectionAbortedError, ConnectionResetError, socket_error) as e:
