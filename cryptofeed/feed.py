@@ -16,9 +16,12 @@ from cryptofeed.util.book import book_delta, depth
 class Feed:
     id = 'NotImplemented'
 
-    def __init__(self, address, pairs=None, channels=None, config=None, callbacks=None, max_depth=None, book_interval=1000):
+    def __init__(self, address, pairs=None, channels=None, config=None, callbacks=None, max_depth=None, book_interval=1000, use_private_channels=False):
         self.hash = str(uuid.uuid4())
         self.uuid = self.id + self.hash
+        self.use_private_channels = use_private_channels
+        self.key_id = None
+        self.key_secret = None
         self.config = {}
         self.address = address
         self.book_update_interval = book_interval
