@@ -267,7 +267,9 @@ def feed_to_exchange(exchange, feed):
         if feed not in _feed_to_exchange_map:
             return pair_std_to_exchange(feed, POLONIEX)
 
-    ret = _feed_to_exchange_map[feed][exchange]
+    channel = _feed_to_exchange_map.get(feed)
+    ret = _feed_to_exchange_map[feed][exchange] if channel else feed
+
     if ret == UNSUPPORTED:
         LOG.error(f"{feed} is not supported on {exchange}")
         raise UnsupportedDataFeed(f"{feed} is not supported on {exchange}")

@@ -4,6 +4,7 @@ Copyright (C) 2017-2019  Bryant Moscon - bmoscon@gmail.com
 Please see the LICENSE file for the terms and conditions
 associated with this software.
 '''
+import os
 import json
 import logging
 from collections import defaultdict
@@ -14,6 +15,7 @@ from sortedcontainers import SortedDict as sd
 
 from cryptofeed.feed import Feed
 from cryptofeed.defines import L2_BOOK, BUY, SELL, BID, ASK, TRADES, FUNDING, BITMEX, INSTRUMENT, TICKER
+from cryptofeed.rest.bitmex import Bitmex as RestBitmex
 from cryptofeed.standards import timestamp_normalize
 
 
@@ -26,6 +28,10 @@ class Bitmex(Feed):
 
     def __init__(self, pairs=None, channels=None, callbacks=None, **kwargs):
         super().__init__('wss://www.bitmex.com/realtime', pairs=pairs, channels=channels, callbacks=callbacks, **kwargs)
+
+        if kwargs.get('use_private_channels'):
+            self.key_id = os.environ.get('BITMEX_API_KEY')
+            self.key_secret = os.environ.get('BITMEX_SECRET_KEY')
 
         active_pairs = self.get_active_symbols()
         if self.config:
@@ -212,6 +218,8 @@ class Bitmex(Feed):
         msg = json.loads(msg, parse_float=Decimal)
         if 'info' in msg:
             LOG.info("%s - info message: %s", self.id, msg)
+        elif 'request' in msg:
+            LOG.info("%s - request message: %s", self.id, msg)
         elif 'subscribe' in msg:
             if not msg['success']:
                 LOG.error("%s: subscribe failed: %s", self.id, msg)
@@ -232,6 +240,14 @@ class Bitmex(Feed):
 
             else:
                 LOG.warning("%s: Unhandled message %s", self.id, msg)
+
+    async def authenticate(self, websocket):
+        auth_info = RestBitmex.generate_signature('GET', '/realtime', key_id=self.key_id, key_secret=self.key_secret)
+        expires = int(auth_info.get('api-expires'))
+        key_id = auth_info.get('api-key')
+        signature = auth_info.get('api-signature')
+        await websocket.send(json.dumps({"op": "authKeyExpires",
+                                         "args": [key_id, expires, signature]}))
 
     async def subscribe(self, websocket):
         self._reset()
