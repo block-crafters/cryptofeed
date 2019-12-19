@@ -54,7 +54,15 @@ class RedisStringCallback(RedisCallback):
             if order is None:
                 order = {}
 
+        unhandled_amount = order.get('unhandled_amount', 0)
+        previous_filled_amount = order.get('filled', 0)
+        current_filled_amount = data.get('filled', 0)
+        new_filled_amount = current_filled_amount - previous_filled_amount
+        unhandled_amount += new_filled_amount
+
         order.update(data)
+        order['unhandled_amount'] = unhandled_amount
+
         await self.redis.set(f"{self.key}-{feed}-{pair}", json.dumps(order))
 
 
