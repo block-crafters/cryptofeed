@@ -42,6 +42,7 @@ L3_BOOK = 'l3_book'
 BOOK_DELTA = 'book_delta'
 TRADES = 'trades'
 TICKER = 'ticker'
+ORDER = 'order'
 VOLUME = 'volume'
 FUNDING = 'funding'
 INSTRUMENT = 'instrument'
@@ -73,10 +74,10 @@ IMMEDIATE_OR_CANCEL = 'immediate-or-cancel'
 
 
 OPEN = 'open'
-PENDING = 'pending'
-FILLED = 'filled'
-PARTIAL = 'partial'
-CANCELLED = 'cancelled'
+PENDING = 'open'
+FILLED = 'closed'
+PARTIAL = 'open'
+CANCELLED = 'canceled'
 
 
 """

@@ -8,7 +8,7 @@ import json
 
 import aioredis
 
-from cryptofeed.backends.backend import BackendBookCallback, BackendBookDeltaCallback, BackendTickerCallback, BackendTradeCallback, BackendFundingCallback
+from cryptofeed.backends.backend import BackendBookCallback, BackendBookDeltaCallback, BackendTickerCallback, BackendTradeCallback, BackendFundingCallback, BackendOrderCallback
 
 
 class RedisCallback:
@@ -28,15 +28,42 @@ class RedisZSetCallback(RedisCallback):
     async def write(self, feed: str, pair: str, timestamp: float, data: dict):
         data = json.dumps(data)
         if self.redis is None:
-            self.redis = await aioredis.create_redis_pool(self.conn_str)
+            self.redis = await aioredis.create_redis_pool(self.conn_str, encoding='utf-8')
         await self.redis.zadd(f"{self.key}-{feed}-{pair}", timestamp, data, exist=self.redis.ZSET_IF_NOT_EXIST)
 
 
 class RedisStreamCallback(RedisCallback):
     async def write(self, feed: str, pair: str, timestamp: float, data: dict):
         if self.redis is None:
-            self.redis = await aioredis.create_redis_pool(self.conn_str)
+            self.redis = await aioredis.create_redis_pool(self.conn_str, encoding='utf-8')
         await self.redis.xadd(f"{self.key}-{feed}-{pair}", data)
+
+
+class RedisStringCallback(RedisCallback):
+    async def write(self, feed: str, pair: str, data: dict):
+        redis_key = f"{self.key}-{feed}-{pair}"
+        if self.redis is None:
+            self.redis = await aioredis.create_redis_pool(self.conn_str, encoding='utf-8')
+
+        order = {}
+        order_str = await self.redis.get(redis_key)
+
+        if order_str:
+            order = json.loads(order_str)
+
+            if order is None:
+                order = {}
+
+        unhandled_amount = order.get('unhandled_amount', 0)
+        previous_filled_amount = order.get('filled', 0)
+        current_filled_amount = data.get('filled', 0)
+        new_filled_amount = current_filled_amount - previous_filled_amount
+        unhandled_amount += new_filled_amount
+
+        order.update(data)
+        order['unhandled_amount'] = unhandled_amount
+
+        await self.redis.set(f"{self.key}-{feed}-{pair}", json.dumps(order))
 
 
 class TradeRedis(RedisZSetCallback, BackendTradeCallback):
@@ -85,3 +112,7 @@ class TickerRedis(RedisZSetCallback, BackendTickerCallback):
 
 class TickerStream(RedisStreamCallback, BackendTickerCallback):
     default_key = 'ticker'
+
+
+class OrderRedis(RedisStringCallback, BackendOrderCallback):
+    default_key = 'order'
