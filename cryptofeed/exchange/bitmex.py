@@ -14,7 +14,7 @@ import requests
 from sortedcontainers import SortedDict as sd
 
 from cryptofeed.feed import Feed
-from cryptofeed.defines import L2_BOOK, BUY, SELL, BID, ASK, TRADES, FUNDING, BITMEX, INSTRUMENT, TICKER
+from cryptofeed.defines import L2_BOOK, BUY, SELL, BID, ASK, TRADES, FUNDING, BITMEX, INSTRUMENT, TICKER, ORDER
 from cryptofeed.rest.bitmex import Bitmex as RestBitmex
 from cryptofeed.standards import timestamp_normalize
 
@@ -65,6 +65,45 @@ class Bitmex(Feed):
         for data in Bitmex.get_active_symbols_info():
             symbols.append(data['symbol'])
         return symbols
+
+    @staticmethod
+    def parse_order_status(status):
+        statuses = {
+            'PendingNew': 'open',
+            'New': 'open',
+            'PartiallyFilled': 'open',
+            'Filled': 'closed',
+            'Canceled': 'canceled',
+            'Rejected': 'rejected',
+        }
+
+        ret = statuses.get(status, None)
+        return ret
+
+    def parse_order(self, data):
+        ts = timestamp_normalize(self.id, data['timestamp'])
+        order = {
+            'order_id': data['orderID'],
+            'timestamp': ts
+        }
+        if data.get('side'):
+            order['side'] = BUY if data['side'] == 'Buy' else SELL
+        if data.get('ordStatus'):
+            order['status'] = Bitmex.parse_order_status(data['ordStatus'])
+
+        # 0 should be True at `if` statement.
+        if data.get('orderQty') is not None:
+            order['amount'] = data['orderQty']
+        if data.get('cumQty') is not None:
+            order['filled'] = data['cumQty']
+        if data.get('leavesQty') is not None:
+            order['remaining'] = data['leavesQty']
+        if data.get('price') is not None:
+            order['price'] = data['price']
+        if (data.get('avgPrice') is not None) or (data.get('avgPx') is not None):
+            order['average'] = (data.get('avgPrice') or data.get('avgPx') or 0)
+
+        return order
 
     async def _trade(self, msg):
         """
@@ -214,6 +253,12 @@ class Bitmex(Feed):
                                             **data
                                             )
 
+    async def _order(self, msg):
+        for data in msg['data']:
+            if data.get('ordStatus'):
+                new_info = self.parse_order(data)
+                await self.callback(ORDER, feed=self.id, pair=data['symbol'], **new_info)
+
     async def message_handler(self, msg: str, timestamp: float):
         msg = json.loads(msg, parse_float=Decimal)
         if 'info' in msg:
@@ -236,6 +281,8 @@ class Bitmex(Feed):
                 await self._instrument(msg)
             elif msg['table'] == 'quote':
                 await self._ticker(msg)
+            elif msg['table'] == 'order':
+                await self._order(msg)
 
 
             else:
