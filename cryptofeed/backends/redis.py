@@ -39,7 +39,7 @@ class RedisStreamCallback(RedisCallback):
         await self.redis.xadd(f"{self.key}-{feed}-{pair}", data)
 
 
-class RedisStringCallback(RedisCallback):
+class RedisOrderCallback(RedisCallback):
     async def write(self, feed: str, pair: str, data: dict):
         redis_key = f"{self.key}-{feed}-{pair}"
         if self.redis is None:
@@ -63,6 +63,7 @@ class RedisStringCallback(RedisCallback):
         order.update(data)
         order['unhandled_amount'] = unhandled_amount
 
+        print(json.dumps(order))
         await self.redis.set(f"{self.key}-{feed}-{pair}", json.dumps(order))
 
 
@@ -114,5 +115,5 @@ class TickerStream(RedisStreamCallback, BackendTickerCallback):
     default_key = 'ticker'
 
 
-class OrderRedis(RedisStringCallback, BackendOrderCallback):
+class OrderRedis(RedisOrderCallback, BackendOrderCallback):
     default_key = 'order'
