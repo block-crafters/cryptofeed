@@ -9,6 +9,7 @@ import json
 import aioredis
 
 from cryptofeed.backends.backend import BackendBookCallback, BackendBookDeltaCallback, BackendTickerCallback, BackendTradeCallback, BackendFundingCallback, BackendOrderCallback
+from cryptofeed.util.lock import redis_order_lock
 
 
 class RedisCallback:
@@ -45,26 +46,26 @@ class RedisOrderCallback(RedisCallback):
         if self.redis is None:
             self.redis = await aioredis.create_redis_pool(self.conn_str, encoding='utf-8')
 
-        order = {}
-        order_str = await self.redis.get(redis_key)
+        async with redis_order_lock:
+            order = {}
+            order_str = await self.redis.get(redis_key)
 
-        if order_str:
-            order = json.loads(order_str)
+            if order_str:
+                order = json.loads(order_str)
 
-            if order is None:
-                order = {}
+                if order is None:
+                    order = {}
 
-        unhandled_amount = order.get('unhandled_amount', 0)
-        previous_filled_amount = order.get('filled', 0)
-        current_filled_amount = data.get('filled', 0)
-        new_filled_amount = current_filled_amount - previous_filled_amount
-        unhandled_amount += new_filled_amount
+            unhandled_amount = order.get('unhandled_amount', 0)
+            previous_filled_amount = order.get('filled', 0)
+            current_filled_amount = data.get('filled', 0)
+            new_filled_amount = current_filled_amount - previous_filled_amount
+            unhandled_amount += new_filled_amount
 
-        order.update(data)
-        order['unhandled_amount'] = unhandled_amount
+            order.update(data)
+            order['unhandled_amount'] = unhandled_amount
 
-        print(json.dumps(order))
-        await self.redis.set(f"{self.key}-{feed}-{pair}", json.dumps(order))
+            await self.redis.set(f"{self.key}-{feed}-{pair}", json.dumps(order))
 
 
 class TradeRedis(RedisZSetCallback, BackendTradeCallback):
