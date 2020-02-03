@@ -1,3 +1,4 @@
+import os
 import logging
 import json
 from decimal import Decimal
@@ -6,6 +7,7 @@ from sortedcontainers import SortedDict as sd
 
 from cryptofeed.feed import Feed
 from cryptofeed.defines import BYBIT, BUY, SELL, TRADES, BID, ASK, L2_BOOK
+from cryptofeed.rest.bybit import Bybit as RestBybit
 from cryptofeed.standards import timestamp_normalize, pair_exchange_to_std as normalize_pair
 
 
@@ -14,9 +16,14 @@ LOG = logging.getLogger('feedhandler')
 
 class Bybit(Feed):
     id = BYBIT
+    private_channels = ['position', 'execution', 'order', 'stop_order']
 
     def __init__(self, pairs=None, channels=None, callbacks=None, **kwargs):
         super().__init__('wss://stream.bybit.com/realtime', pairs=pairs, channels=channels, callbacks=callbacks, **kwargs)
+
+        if kwargs.get('use_private_channels'):
+            self.key_id = os.environ.get('BYBIT_API_KEY')
+            self.key_secret = os.environ.get('BYBIT_SECRET_KEY')
 
     def __reset(self):
         self.l2_book = {}
@@ -36,14 +43,31 @@ class Bybit(Feed):
         else:
             LOG.warning("%s: Invalid message type %s", self.id, msg)
 
+    async def authenticate(self, websocket):
+        """
+        Reference:
+            https://github.com/bybit-exchange/bybit-official-api-docs/blob/master/en/websocket.md#authentication
+        """
+        auth_info = RestBybit.generate_signature('GET', '/realtime', key_id=self.key_id, key_secret=self.key_secret)
+        expires = int(auth_info.get('api-expires'))
+        key_id = auth_info.get('api-key')
+        signature = auth_info.get('api-signature')
+        await websocket.send(json.dumps({"op": "auth",
+                                         "args": [key_id, expires, signature]}))
+
     async def subscribe(self, websocket):
         self.__reset()
         for chan in self.channels if self.channels else self.config:
             for pair in self.pairs if self.pairs else self.config[chan]:
+                if chan in self.private_channels:
+                    topic = chan
+                else:
+                    topic = f'{chan}.{pair}'
+                
                 await websocket.send(json.dumps(
                     {
                         "op": "subscribe",
-                        "args": [f"{chan}.{pair}"]
+                        "args": [topic]
                     }
                 ))
 
