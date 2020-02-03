@@ -6,7 +6,7 @@ from decimal import Decimal
 from sortedcontainers import SortedDict as sd
 
 from cryptofeed.feed import Feed
-from cryptofeed.defines import BYBIT, BUY, SELL, TRADES, BID, ASK, L2_BOOK
+from cryptofeed.defines import BYBIT, BUY, SELL, TRADES, BID, ASK, L2_BOOK, ORDER
 from cryptofeed.rest.bybit import Bybit as RestBybit
 from cryptofeed.standards import timestamp_normalize, pair_exchange_to_std as normalize_pair
 
@@ -40,6 +40,8 @@ class Bybit(Feed):
             await self._trade(msg)
         elif "order_book_25L1" in msg["topic"]:
             await self._book(msg)
+        elif 'order' == msg['topic']:
+            await self._order(msg)
         else:
             LOG.warning("%s: Invalid message type %s", self.id, msg)
 
@@ -70,6 +72,51 @@ class Bybit(Feed):
                         "args": [topic]
                     }
                 ))
+
+    @staticmethod
+    def parse_order_status(status):
+        statuses = {
+            'Created': 'open',
+            'New': 'open',
+            'PartiallyFilled': 'open',
+            'Filled': 'closed',
+            'Cancelled': 'canceled',
+            'Rejected': 'rejected',
+            'Untriggered': 'open',
+            'Triggered': 'open',
+            'Active': 'open',
+        }
+
+        ret = statuses.get(status, None)
+        return ret
+    
+    def parse_order(self, data):
+        ts = timestamp_normalize(self.id, data['timestamp'])
+        order = {
+            'order_id': data['order_id'],
+            'timestamp': ts
+        }
+        if data.get('side'):
+            order['side'] = BUY if data['side'] == 'Buy' else SELL
+        if data.get('order_status'):
+            order['status'] = Bybit.parse_order_status(data['order_status'])
+        
+        # 0 should be True at `if` statement.
+        if data.get('qty') is not None:
+            order['amount'] = data['qty']
+        if data.get('cum_exec_qty') is not None:
+            order['filled'] = data['cum_exec_qty']
+        if data.get('leaves_qty') is not None:
+            order['remaining'] = data['leaves_qty']
+        if data.get('price') is not None:
+            order['price'] = float(data['price'])
+        average = None
+        cum_exec_value = float(data['cum_exec_value']) if data['cum_exec_value'] is not None else None
+        if cum_exec_value and cum_exec_value > 0 and order['filled'] and order['filled'] > 0:
+            average = order['filled'] / cum_exec_value
+        order['average'] = average
+        
+        return order
 
     async def _trade(self, msg):
         """
@@ -128,3 +175,9 @@ class Bybit(Feed):
 
         # timestamp is in microseconds
         await self.book_callback(self.l2_book[pair], L2_BOOK, pair, forced, delta, msg['timestamp_e6'] / 1000000)
+
+    async def _order(self, msg):
+        for data in msg['data']:
+            if data.get('order_status'):
+                new_info = self.parse_order(data)
+                await self.callback(ORDER, feed=self.id, pair=normalize_pair(data['symbol']), **new_info)
