@@ -1,9 +1,12 @@
+from dotenv import load_dotenv
+
 from cryptofeed.callback import TradeCallback, BookCallback
+from cryptofeed.backends.redis import OrderRedis
 from cryptofeed import FeedHandler
-
 from cryptofeed.exchanges import Bybit
-from cryptofeed.defines import TRADES, L2_BOOK, BID, ASK
+from cryptofeed.defines import TRADES, L2_BOOK, ORDER, BID, ASK
 
+load_dotenv(verbose=True)
 
 async def trade(feed, pair, order_id, timestamp, side, amount, price):
     print(f"Timestamp: {timestamp} Feed: {feed} Pair: {pair} ID: {order_id} Side: {side} Amount: {amount} Price: {price}")
@@ -18,7 +21,7 @@ def main():
 
     f.add_feed(Bybit(pairs=['BTC-USD', 'ETH-USD', 'XRP-USD', 'EOS-USD'], channels=[TRADES], callbacks={TRADES: TradeCallback(trade)}))
     f.add_feed(Bybit(pairs=['BTC-USD', 'ETH-USD', 'XRP-USD', 'EOS-USD'], channels=[L2_BOOK], callbacks={L2_BOOK: BookCallback(book)}))
-
+    f.add_feed(Bybit(config={ORDER:['BTC-USD']}, callbacks={ORDER: OrderRedis()}, use_private_channels=True))
     f.run()
 
 
