@@ -1,3 +1,4 @@
+import os
 import logging
 import json
 from decimal import Decimal
@@ -5,7 +6,8 @@ from decimal import Decimal
 from sortedcontainers import SortedDict as sd
 
 from cryptofeed.feed import Feed
-from cryptofeed.defines import BYBIT, BUY, SELL, TRADES, BID, ASK, L2_BOOK
+from cryptofeed.defines import BYBIT, BUY, SELL, TRADES, BID, ASK, L2_BOOK, ORDER
+from cryptofeed.rest.bybit import Bybit as RestBybit
 from cryptofeed.standards import timestamp_normalize, pair_exchange_to_std as normalize_pair
 
 
@@ -14,9 +16,14 @@ LOG = logging.getLogger('feedhandler')
 
 class Bybit(Feed):
     id = BYBIT
+    private_channels = ['position', 'execution', 'order', 'stop_order']
 
     def __init__(self, pairs=None, channels=None, callbacks=None, **kwargs):
         super().__init__('wss://stream.bybit.com/realtime', pairs=pairs, channels=channels, callbacks=callbacks, **kwargs)
+
+        if kwargs.get('use_private_channels'):
+            self.key_id = os.environ.get('BYBIT_API_KEY')
+            self.key_secret = os.environ.get('BYBIT_SECRET_KEY')
 
     def __reset(self):
         self.l2_book = {}
@@ -33,19 +40,83 @@ class Bybit(Feed):
             await self._trade(msg)
         elif "order_book_25L1" in msg["topic"]:
             await self._book(msg)
+        elif 'order' == msg['topic']:
+            await self._order(msg)
         else:
             LOG.warning("%s: Invalid message type %s", self.id, msg)
+
+    async def authenticate(self, websocket):
+        """
+        Reference:
+            https://github.com/bybit-exchange/bybit-official-api-docs/blob/master/en/websocket.md#authentication
+        """
+        auth_info = RestBybit.generate_signature('GET', '/realtime', key_id=self.key_id, key_secret=self.key_secret)
+        expires = int(auth_info.get('api-expires'))
+        key_id = auth_info.get('api-key')
+        signature = auth_info.get('api-signature')
+        await websocket.send(json.dumps({"op": "auth",
+                                         "args": [key_id, expires, signature]}))
 
     async def subscribe(self, websocket):
         self.__reset()
         for chan in self.channels if self.channels else self.config:
             for pair in self.pairs if self.pairs else self.config[chan]:
+                if chan in self.private_channels:
+                    topic = chan
+                else:
+                    topic = f'{chan}.{pair}'
+                
                 await websocket.send(json.dumps(
                     {
                         "op": "subscribe",
-                        "args": [f"{chan}.{pair}"]
+                        "args": [topic]
                     }
                 ))
+
+    @staticmethod
+    def parse_order_status(status):
+        statuses = {
+            'Created': 'open',
+            'New': 'open',
+            'PartiallyFilled': 'open',
+            'Filled': 'closed',
+            'Cancelled': 'canceled',
+            'Rejected': 'rejected',
+            'Untriggered': 'open',
+            'Triggered': 'open',
+            'Active': 'open',
+        }
+
+        ret = statuses.get(status, None)
+        return ret
+    
+    def parse_order(self, data):
+        ts = timestamp_normalize(self.id, data['timestamp'])
+        order = {
+            'order_id': data['order_id'],
+            'timestamp': ts
+        }
+        if data.get('side'):
+            order['side'] = BUY if data['side'] == 'Buy' else SELL
+        if data.get('order_status'):
+            order['status'] = Bybit.parse_order_status(data['order_status'])
+        
+        # 0 should be True at `if` statement.
+        if data.get('qty') is not None:
+            order['amount'] = data['qty']
+        if data.get('cum_exec_qty') is not None:
+            order['filled'] = data['cum_exec_qty']
+        if data.get('leaves_qty') is not None:
+            order['remaining'] = data['leaves_qty']
+        if data.get('price') is not None:
+            order['price'] = float(data['price'])
+        average = None
+        cum_exec_value = float(data['cum_exec_value']) if data['cum_exec_value'] is not None else None
+        if cum_exec_value and cum_exec_value > 0 and order['filled'] and order['filled'] > 0:
+            average = order['filled'] / cum_exec_value
+        order['average'] = average
+        
+        return order
 
     async def _trade(self, msg):
         """
@@ -104,3 +175,9 @@ class Bybit(Feed):
 
         # timestamp is in microseconds
         await self.book_callback(self.l2_book[pair], L2_BOOK, pair, forced, delta, msg['timestamp_e6'] / 1000000)
+
+    async def _order(self, msg):
+        for data in msg['data']:
+            if data.get('order_status'):
+                new_info = self.parse_order(data)
+                await self.callback(ORDER, feed=self.id, pair=normalize_pair(data['symbol']), **new_info)
