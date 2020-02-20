@@ -38,7 +38,7 @@ class Bybit(Feed):
                 LOG.error("%s: Error from exchange %s", self.id, msg)
         elif "trade" in msg["topic"]:
             await self._trade(msg)
-        elif "order_book_25L1" in msg["topic"]:
+        elif "orderBookL2_25" in msg["topic"]:
             await self._book(msg)
         elif 'order' == msg['topic']:
             await self._order(msg)
