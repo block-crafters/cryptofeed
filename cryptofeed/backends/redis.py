@@ -36,7 +36,6 @@ class RedisStringCallback(RedisCallback):
     async def write(self, feed: str, pair: str, timestamp: float, data: dict):
         if self.redis is None:
             self.redis = await aioredis.create_redis_pool(self.conn_str, encoding='utf-8')
-        print(json.dumps(data))
         await self.redis.set(f"{self.key}-{feed}-{pair}", json.dumps(data))
 
 
