@@ -14,9 +14,11 @@ load_dotenv()
 LOG = logging.getLogger('rest')
 
 class Binance(API):
+    # NOTE(boseok): market에 따라 다음과 같이 class를 구분한다.
     # spot -> Binance
     # margin -> BinanceMargin(Binance)
     # futures -> BinanceFutures(Binance)
+
     ID = BINANCE
     api = 'https://api.binance.com'
 
@@ -26,8 +28,8 @@ class Binance(API):
 
     def generate_signature(self, params=None) -> dict:
         """
-        verb: GET/POST/PUT
-        url: api endpoint
+        Generate signature for authentication
+
         params: body (if present)
         """
         if params:
@@ -37,7 +39,12 @@ class Binance(API):
         return signature
 
     @staticmethod
-    def stringify_params(params:dict):
+    def stringify_params(params: dict):
+        """
+        Stringify params to concatenated string
+
+        params: body (if present)
+        """
         has_signature = False
         if 'signature' in params:
             has_signature = True
@@ -56,7 +63,10 @@ class Binance(API):
         return params_str
 
     @staticmethod
-    def bool_to_str(value:bool):
+    def bool_to_str(value: bool):
+        """
+        Convert bool to string
+        """
         if type(value) == 'bool':
             bool_str = 'true' if value else 'false'
             return bool_str
@@ -99,11 +109,12 @@ class Binance(API):
 
     def create_listen_key(self):
         """
-        spot: POST /api/v3/userDataStream
-        margin: POST /sapi/v1/userDataStream
-        https://binance-docs.github.io/apidocs/spot/en/#listen-key-spot
-        https://binance-docs.github.io/apidocs/spot/en/#listen-key-margin
+        Create listenKey for user data stream
 
+        spot: POST /api/v3/userDataStream
+        https://binance-docs.github.io/apidocs/spot/en/#listen-key-spot
+
+        Returns:
         {
            "listenKey": "pqia91ma19a5s61cv6a81va65sdf19v8a65a1a5s61cv6a81va65sdf19v8a65a1"
         }
@@ -111,16 +122,15 @@ class Binance(API):
         endpoint = '/api/v3/userDataStream'
         return self._post(endpoint)
 
-    def keepalive_listen_key(self, listen_key):
+    def keepalive_listen_key(self, listen_key: str):
         """
-        spot: PUT /api/v3/userDataStream
-        margin: PUT /sapi/v1/userDataStream
-        https://binance-docs.github.io/apidocs/spot/en/#listen-key-spot
-        https://binance-docs.github.io/apidocs/spot/en/#listen-key-margin
+        Keepalive a user data stream to prevent a time out
 
-        {
-           "listenKey": "pqia91ma19a5s61cv6a81va65sdf19v8a65a1a5s61cv6a81va65sdf19v8a65a1"
-        }
+        spot: PUT /api/v3/userDataStream
+        https://binance-docs.github.io/apidocs/spot/en/#listen-key-spot
+
+        Args:
+            listen_key(str)
         """
         endpoint = '/api/v3/userDataStream'
         params = {

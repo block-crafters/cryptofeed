@@ -9,9 +9,11 @@ load_dotenv()
 LOG = logging.getLogger('rest')
 
 class BinanceMargin(Binance):
-    # spot, margin, futures class를 api가 같은 것 끼리 묶는다.
-    # spot, margin -> Binance
-    # futures -> BinanceFutures
+    # NOTE(boseok): market에 따라 다음과 같이 class를 구분한다.
+    # spot -> Binance
+    # margin -> BinanceMargin(Binance)
+    # futures -> BinanceFutures(Binance)
+
     ID = BINANCE_MARGIN
 
     def __init__(self):
@@ -20,11 +22,12 @@ class BinanceMargin(Binance):
 
     def create_listen_key(self):
         """
-        spot: POST /api/v3/userDataStream
+        Create listenKey for user data stream
+
         margin: POST /sapi/v1/userDataStream
-        https://binance-docs.github.io/apidocs/spot/en/#listen-key-spot
         https://binance-docs.github.io/apidocs/spot/en/#listen-key-margin
 
+        Returns:
         {
            "listenKey": "pqia91ma19a5s61cv6a81va65sdf19v8a65a1a5s61cv6a81va65sdf19v8a65a1"
         }
@@ -32,16 +35,15 @@ class BinanceMargin(Binance):
         endpoint = '/sapi/v1/userDataStream'
         return self._post(endpoint)
 
-    def keepalive_listen_key(self, listen_key):
+    def keepalive_listen_key(self, listen_key: str):
         """
-        spot: PUT /api/v3/userDataStream
+        Keepalive a user data stream to prevent a time out
+
         margin: PUT /sapi/v1/userDataStream
-        https://binance-docs.github.io/apidocs/spot/en/#listen-key-spot
         https://binance-docs.github.io/apidocs/spot/en/#listen-key-margin
 
-        {
-           "listenKey": "pqia91ma19a5s61cv6a81va65sdf19v8a65a1a5s61cv6a81va65sdf19v8a65a1"
-        }
+        Args:
+            listen_key(str)
         """
         endpoint = '/sapi/v1/userDataStream'
         data = {

@@ -8,19 +8,22 @@ LOG = logging.getLogger('rest')
 
 
 class BinanceFutures(Binance):
-    # spot, margin, futures class를 api가 같은 것 끼리 묶는다.
-    # spot, margin -> Binance
-    # futures -> BinanceFutures
+    # NOTE(boseok): market에 따라 다음과 같이 class를 구분한다.
+    # spot -> Binance
+    # margin -> BinanceMargin(Binance)
+    # futures -> BinanceFutures(Binance)
+
     ID = BINANCE_FUTURES
     api = 'https://fapi.binance.com'
 
     def create_listen_key(self):
         """
-        spot: POST /api/v3/userDataStream
-        margin: POST /sapi/v1/userDataStream
-        https://binance-docs.github.io/apidocs/spot/en/#listen-key-spot
-        https://binance-docs.github.io/apidocs/spot/en/#listen-key-margin
+        Create listenKey for user data stream
 
+        futures: POST /fapi/v1/listenKey
+        https://binance-docs.github.io/apidocs/futures/en/#start-user-data-stream-user_stream
+
+        Returns:
         {
            "listenKey": "pqia91ma19a5s61cv6a81va65sdf19v8a65a1a5s61cv6a81va65sdf19v8a65a1"
         }
@@ -32,16 +35,15 @@ class BinanceFutures(Binance):
         }
         return self._post(endpoint, params, True)
 
-    def keepalive_listen_key(self, listen_key):
+    def keepalive_listen_key(self, listen_key: str):
         """
-        spot: PUT /api/v3/userDataStream
-        margin: PUT /sapi/v1/userDataStream
-        https://binance-docs.github.io/apidocs/spot/en/#listen-key-spot
-        https://binance-docs.github.io/apidocs/spot/en/#listen-key-margin
+        Keepalive a user data stream to prevent a time out
 
-        {
-           "listenKey": "pqia91ma19a5s61cv6a81va65sdf19v8a65a1a5s61cv6a81va65sdf19v8a65a1"
-        }
+        futures: PUT /fapi/v1/listenKey
+        https://binance-docs.github.io/apidocs/futures/en/#keepalive-user-data-stream-user_stream
+
+        Args:
+            listen_key(str):
         """
         endpoint = '/fapi/v1/listenKey'
         params = {
