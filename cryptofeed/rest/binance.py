@@ -2,6 +2,7 @@ import os
 import hashlib
 import hmac
 import logging
+import time
 
 from dotenv import load_dotenv
 import requests
@@ -13,9 +14,9 @@ load_dotenv()
 LOG = logging.getLogger('rest')
 
 class Binance(API):
-    # spot, margin, futures class를 api가 같은 것 끼리 묶는다.
-    # spot, margin -> Binance
-    # futures -> BinanceFutures
+    # spot -> Binance
+    # margin -> BinanceMargin(Binance)
+    # futures -> BinanceFutures(Binance)
     ID = BINANCE
     api = 'https://api.binance.com'
 
@@ -23,32 +24,77 @@ class Binance(API):
         self.key_id = os.getenv('BINANCE_API_KEY')
         self.key_secret = os.getenv('BINANCE_SECRET_KEY')
 
-    def generate_signature(self, data='') -> dict:
+    def generate_signature(self, params=None) -> dict:
         """
         verb: GET/POST/PUT
         url: api endpoint
-        data: body (if present)
+        params: body (if present)
         """
-        signature = hmac.new(bytes(self.key_secret, 'utf8'), bytes(data, 'utf8'), digestmod=hashlib.sha256).hexdigest()
+        if params:
+            params_str = self.stringify_params(params)
+        
+        signature = hmac.new(bytes(self.key_secret, 'utf8'), bytes(params_str, 'utf8'), digestmod=hashlib.sha256).hexdigest()
         return signature
 
-    def _post(self, endpoint: str, data=None):
+    @staticmethod
+    def stringify_params(params:dict):
+        has_signature = False
+        if 'signature' in params:
+            has_signature = True
+            signature = params['signature']
+
+        params_list = list(params.items())
+        params_except_signature_list = [param_tuple for param_tuple in params_list if param_tuple[0] != 'signature']
+        params_str = '&'.join([f'{param_tuple[0]}={Binance.bool_to_str(param_tuple[1])}' for param_tuple in params_except_signature_list])
+
+        if has_signature:
+            if params_except_signature_list:
+                params_str += f'&signature={signature}'
+            else:
+                params_str = f'signature={signature}'
+
+        return params_str
+
+    @staticmethod
+    def bool_to_str(value:bool):
+        if type(value) == 'bool':
+            bool_str = 'true' if value else 'false'
+            return bool_str
+        else:
+            return value
+
+    def _post(self, endpoint: str, params=None, sign=False):
+        if params is None:
+            params = {}
+
+        if sign:
+            signature = self.generate_signature(params)
+            params['signature'] = signature
+
+        query = self.stringify_params(params)
+        url = f'{self.api}{endpoint}?{query}'
+
         headers = {
-            'Accept': 'application/json',
-            'User-Agent': 'binance/python',
             'X-MBX-APIKEY': self.key_id
         }
-        url = f'{self.api}{endpoint}'
-        response = requests.post(url, headers=headers, data=data)
+        response = requests.post(url, headers=headers, params=params)
         return response.json()
 
-    def _put(self, endpoint: str, data=None):
+    def _put(self, endpoint: str, params=None, sign=False):
+        if params is None:
+            params = {}
+
+        if sign:
+            signature = self.generate_signature(params)
+            params['signature'] = signature
+
+        query = self.stringify_params(params)
+        url = f'{self.api}{endpoint}?{query}'
+
         headers = {
-            'Accept': 'application/json',
-            'User-Agent': 'binance/python',
             'X-MBX-APIKEY': self.key_id
         }
-        response = requests.put(f'{self.api}{endpoint}', headers=headers, data=data)
+        response = requests.put(url, headers=headers, params=params)
         return response.json()
 
     def create_listen_key(self):
@@ -77,7 +123,7 @@ class Binance(API):
         }
         """
         endpoint = '/api/v3/userDataStream'
-        data = {
+        params = {
             'listenKey': listen_key
         }
-        return self._put(endpoint, data)
+        return self._put(endpoint, params)
