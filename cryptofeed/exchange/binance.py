@@ -4,6 +4,7 @@ Copyright (C) 2017-2019  Bryant Moscon - bmoscon@gmail.com
 Please see the LICENSE file for the terms and conditions
 associated with this software.
 '''
+import os
 import asyncio
 import json
 import logging
@@ -13,7 +14,8 @@ import aiohttp
 from sortedcontainers import SortedDict as sd
 
 from cryptofeed.feed import Feed
-from cryptofeed.defines import TICKER, TRADES, BUY, SELL, BID, ASK, L2_BOOK, BINANCE
+from cryptofeed.defines import TICKER, TRADES, ORDER, BUY, SELL, BID, ASK, L2_BOOK, BINANCE
+from cryptofeed.rest.binance import Binance as RestBinance
 from cryptofeed.standards import pair_exchange_to_std, timestamp_normalize, feed_to_exchange
 
 
@@ -25,6 +27,12 @@ class Binance(Feed):
 
     def __init__(self, pairs=None, channels=None, callbacks=None, depth=1000, **kwargs):
         super().__init__(None, pairs=pairs, channels=channels, callbacks=callbacks, **kwargs)
+
+        if self.use_private_channels:
+            self.key_id = os.environ.get('BINANCE_API_KEY')
+            self.key_secret = os.environ.get('BINANCE_SECRET_KEY')
+
+        self.rest_client = RestBinance()
         self.book_depth = depth
         self.ws_endpoint = 'wss://stream.binance.com:9443'
         self.rest_endpoint = 'https://www.binance.com/api/v1'
@@ -32,13 +40,18 @@ class Binance(Feed):
         self.__reset()
 
     def _address(self):
-        address = self.ws_endpoint+'/stream?streams='
-        for chan in self.channels if not self.config else self.config:
-            for pair in self.pairs if not self.config else self.config[chan]:
-                pair = pair.lower()
-                stream = f"{pair}@{chan}/"
-                address += stream
-        return address[:-1]
+        if self.use_private_channels:
+            listen_key = self.rest_client.create_listen_key().get('listenKey')
+            address = self.ws_endpoint+f'/ws/{listen_key}'
+            return address
+        else:
+            address = self.ws_endpoint+'/stream?streams='
+            for chan in self.channels if not self.config else self.config:
+                for pair in self.pairs if not self.config else self.config[chan]:
+                    pair = pair.lower()
+                    stream = f"{pair}@{chan}/"
+                    address += stream
+            return address[:-1]
 
     def __reset(self):
         self.l2_book = {}

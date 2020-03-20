@@ -195,7 +195,8 @@ class FeedHandler:
                     delay = 1
 
                     if feed.use_private_channels:
-                        await feed.authenticate(websocket)
+                        if feed.id in [BITMEX, BYBIT]:
+                            await feed.authenticate(websocket)
 
                     await feed.subscribe(websocket)
                     await self._handler(websocket, feed.message_handler, feed.uuid)
