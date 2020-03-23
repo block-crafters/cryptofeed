@@ -37,7 +37,7 @@ class Binance(Feed):
         self.ws_endpoint = 'wss://stream.binance.com:9443'
         self.rest_endpoint = 'https://www.binance.com/api/v1'
         self.address = self._address()
-        self.__reset()
+        self._reset()
 
     def _address(self):
         if self.use_private_channels:
@@ -53,7 +53,7 @@ class Binance(Feed):
                     address += stream
             return address[:-1]
 
-    def __reset(self):
+    def _reset(self):
         self.l2_book = {}
         self.last_update_id = {}
 
@@ -324,7 +324,7 @@ class Binance(Feed):
         # Binance does not have a separate subscribe message, the
         # subsription information is included in the
         # connection endpoint
-        self.__reset()
+        self._reset()
         # If full book enabled, collect snapshot first
         if feed_to_exchange(self.id, L2_BOOK) in self.channels:
             await self._snapshot(self.pairs)
