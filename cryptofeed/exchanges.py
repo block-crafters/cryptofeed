@@ -5,6 +5,7 @@ Please see the LICENSE file for the terms and conditions
 associated with this software.
 '''
 from cryptofeed.exchange.binance import Binance
+from cryptofeed.exchange.binance_margin import BinanceMargin
 from cryptofeed.exchange.binance_us import BinanceUS
 from cryptofeed.exchange.binance_jersey import BinanceJersey
 from cryptofeed.exchange.binance_futures import BinanceFutures
