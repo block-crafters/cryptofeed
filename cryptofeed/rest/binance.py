@@ -51,11 +51,11 @@ class Binance(API):
             signature = params['signature']
 
         params_list = list(params.items())
-        params_except_signature_list = [param_tuple for param_tuple in params_list if param_tuple[0] != 'signature']
-        params_str = '&'.join([f'{param_tuple[0]}={Binance.bool_to_str(param_tuple[1])}' for param_tuple in params_except_signature_list])
+        params_except_signature = [param_tuple for param_tuple in params_list if param_tuple[0] != 'signature']
+        params_str = '&'.join([f'{param_tuple[0]}={Binance.bool_to_str(param_tuple[1])}' for param_tuple in params_except_signature])
 
         if has_signature:
-            if params_except_signature_list:
+            if params_except_signature:
                 params_str += f'&signature={signature}'
             else:
                 params_str = f'signature={signature}'
@@ -67,7 +67,7 @@ class Binance(API):
         """
         Convert bool to string
         """
-        if type(value) == 'bool':
+        if isinstance(value, bool):
             bool_str = 'true' if value else 'false'
             return bool_str
         else:
