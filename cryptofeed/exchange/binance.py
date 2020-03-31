@@ -4,6 +4,7 @@ Copyright (C) 2017-2019  Bryant Moscon - bmoscon@gmail.com
 Please see the LICENSE file for the terms and conditions
 associated with this software.
 '''
+import os
 import asyncio
 import json
 import logging
@@ -13,7 +14,8 @@ import aiohttp
 from sortedcontainers import SortedDict as sd
 
 from cryptofeed.feed import Feed
-from cryptofeed.defines import TICKER, TRADES, BUY, SELL, BID, ASK, L2_BOOK, BINANCE
+from cryptofeed.defines import TICKER, TRADES, ORDER, BUY, SELL, BID, ASK, L2_BOOK, BINANCE
+from cryptofeed.rest.binance import Binance as RestBinance
 from cryptofeed.standards import pair_exchange_to_std, timestamp_normalize, feed_to_exchange
 
 
@@ -25,22 +27,33 @@ class Binance(Feed):
 
     def __init__(self, pairs=None, channels=None, callbacks=None, depth=1000, **kwargs):
         super().__init__(None, pairs=pairs, channels=channels, callbacks=callbacks, **kwargs)
+
+        if self.use_private_channels:
+            self.key_id = os.environ.get('BINANCE_API_KEY')
+            self.key_secret = os.environ.get('BINANCE_SECRET_KEY')
+
+        self.rest_client = RestBinance()
         self.book_depth = depth
         self.ws_endpoint = 'wss://stream.binance.com:9443'
         self.rest_endpoint = 'https://www.binance.com/api/v1'
         self.address = self._address()
-        self.__reset()
+        self._reset()
 
     def _address(self):
-        address = self.ws_endpoint+'/stream?streams='
-        for chan in self.channels if not self.config else self.config:
-            for pair in self.pairs if not self.config else self.config[chan]:
-                pair = pair.lower()
-                stream = f"{pair}@{chan}/"
-                address += stream
-        return address[:-1]
+        if self.use_private_channels:
+            listen_key = self.rest_client.create_listen_key().get('listenKey')
+            address = self.ws_endpoint+f'/ws/{listen_key}'
+            return address
+        else:
+            address = self.ws_endpoint+'/stream?streams='
+            for chan in self.channels if not self.config else self.config:
+                for pair in self.pairs if not self.config else self.config[chan]:
+                    pair = pair.lower()
+                    stream = f"{pair}@{chan}/"
+                    address += stream
+            return address[:-1]
 
-    def __reset(self):
+    def _reset(self):
         self.l2_book = {}
         self.last_update_id = {}
 
@@ -187,30 +200,131 @@ class Binance(Feed):
 
         await self.book_callback(self.l2_book[pair], L2_BOOK, pair, forced, delta, timestamp_normalize(self.id, timestamp))
 
+    async def _order(self, msg: dict):
+        """
+        {
+            "e": "executionReport",        // Event type
+            "E": 1499405658658,            // Event time
+            "s": "ETHBTC",                 // Symbol
+            "c": "mUvoqJxFIILMdfAW5iGSOW", // Client order ID
+            "S": "BUY",                    // Side
+            "o": "LIMIT",                  // Order type
+            "f": "GTC",                    // Time in force
+            "q": "1.00000000",             // Order quantity
+            "p": "0.10264410",             // Order price
+            "P": "0.00000000",             // Stop price
+            "F": "0.00000000",             // Iceberg quantity
+            "g": -1,                       // OrderListId
+            "C": null,                     // Original client order ID; This is the ID of the order being canceled
+            "x": "NEW",                    // Current execution type
+            "X": "NEW",                    // Current order status
+            "r": "NONE",                   // Order reject reason; will be an error code.
+            "i": 4293153,                  // Order ID
+            "l": "0.00000000",             // Last executed quantity
+            "z": "0.00000000",             // Cumulative filled quantity
+            "L": "0.00000000",             // Last executed price
+            "n": "0",                      // Commission amount
+            "N": null,                     // Commission asset
+            "T": 1499405658657,            // Transaction time
+            "t": -1,                       // Trade ID
+            "I": 8641984,                  // Ignore
+            "w": true,                     // Is the order on the book?
+            "m": false,                    // Is this trade the maker side?
+            "M": false,                    // Ignore
+            "O": 1499405658657,            // Order creation time
+            "Z": "0.00000000",             // Cumulative quote asset transacted quantity
+            "Y": "0.00000000",             // Last quote asset transacted quantity (i.e. lastPrice * lastQty)
+            "Q": "0.00000000"              // Quote Order Qty
+            }
+        """
+        new_info = self.parse_order(msg)
+        await self.callback(ORDER, feed=self.id, **new_info)
+
+    @staticmethod
+    def parse_order_status(status):
+        """
+        Order status (status):
+
+        NEW - The order has been accepted by the engine.
+        PARTIALLY_FILLED - A part of the order has been filled.
+        FILLED - The order has been completely filled.
+        CANCELED - The order has been canceled by the user.
+        PENDING_CANCEL (currently unused)
+        REJECTED - The order was not accepted by the engine and not processed.
+        EXPIRED - The order was canceled according to the order type's rules 
+                (e.g. LIMIT FOK orders with no fill, LIMIT IOC or MARKET orders that partially fill) 
+                or by the exchange, 
+                (e.g. orders canceled during liquidation, orders canceled during maintenance)
+        """
+
+        statuses = {
+            'NEW': 'open',
+            'PARTIALLY_FILLED': 'open',
+            'FILLED': 'closed',
+            'CANCELED': 'canceled',
+            'PENDING_CANCEL': 'canceling',
+            'REJECTED': 'rejected',
+            'EXPIRED': 'canceled',
+        }
+
+        ret = statuses.get(status, None)
+        return ret
+
+    def parse_order(self, data):
+        ts = timestamp_normalize(self.id, data['E'])
+        order = {
+            'pair': pair_exchange_to_std(data['s']),
+            'order_id': data['i'],
+            'timestamp': ts
+        }
+        order['side'] = BUY if data['S'] == 'BUY' else SELL
+        order['status'] = self.parse_order_status(data['X']) # X: Current order status
+        order['amount'] = float(data['q']) # q: Order quantity
+        filled = float(data['z']) # z: Cumulative filled quantity
+        order['filled'] = filled
+        order['remaining'] = order['amount'] - filled
+        if data.get('p') is not None:
+            order['price'] = float(data['p']) # p: Order price
+        cumulative_quote_quantity = float(data['Z']) # Z: Cumulative quote asset transacted quantity
+        if filled > 0:
+            order['average'] = cumulative_quote_quantity / filled
+
+        return order
+
     async def message_handler(self, msg: str, timestamp: float):
         msg = json.loads(msg, parse_float=Decimal)
-
-        # Combined stream events are wrapped as follows: {"stream":"<streamName>","data":<rawPayload>}
-        # streamName is of format <symbol>@<channel>
-        pair, _ = msg['stream'].split('@', 1)
-        msg = msg['data']
-
-        pair = pair.upper()
-
-        if msg['e'] == 'depthUpdate':
-            await self._book(msg, pair, timestamp)
-        elif msg['e'] == 'aggTrade':
-            await self._trade(msg)
-        elif msg['e'] == '24hrTicker':
-            await self._ticker(msg)
+        if self.use_private_channels:
+            if msg['e'] == 'outboundAccountInfo':
+                pass
+            elif msg['e'] == 'outboundAccountPosition':
+                pass
+            elif msg['e'] == 'balanceUpdate':
+                pass
+            elif msg['e'] == 'executionReport':
+                await self._order(msg)
+            elif msg['e'] == 'listStatus':
+                pass        
         else:
-            LOG.warning("%s: Unexpected message received: %s", self.id, msg)
+            # Combined stream events are wrapped as follows: {"stream":"<streamName>","data":<rawPayload>}
+            # streamName is of format <symbol>@<channel>
+            pair, _ = msg['stream'].split('@', 1)
+            msg = msg['data']
+            pair = pair.upper()
+            
+            if msg['e'] == 'depthUpdate':
+                await self._book(msg, pair, timestamp)
+            elif msg['e'] == 'aggTrade':
+                await self._trade(msg)
+            elif msg['e'] == '24hrTicker':
+                await self._ticker(msg)
+            else:
+                LOG.warning("%s: Unexpected message received: %s", self.id, msg)
 
     async def subscribe(self, websocket):
         # Binance does not have a separate subscribe message, the
         # subsription information is included in the
         # connection endpoint
-        self.__reset()
+        self._reset()
         # If full book enabled, collect snapshot first
         if feed_to_exchange(self.id, L2_BOOK) in self.channels:
             await self._snapshot(self.pairs)

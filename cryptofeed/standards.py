@@ -13,8 +13,8 @@ import logging
 import pandas as pd
 
 from cryptofeed.defines import (L2_BOOK, L3_BOOK, TRADES, TICKER, VOLUME, FUNDING, UNSUPPORTED, BITFINEX, GEMINI, BITMAX,
-                                POLONIEX, HITBTC, BITSTAMP, COINBASE, BITMEX, KRAKEN, KRAKEN_FUTURES, BINANCE, EXX, HUOBI, HUOBI_US, HUOBI_DM, OKCOIN,
-                                OKEX, COINBENE, BYBIT, FTX, TRADES_SWAP, TICKER_SWAP, L2_BOOK_SWAP, TRADES_FUTURES, TICKER_FUTURES, L2_BOOK_FUTURES,
+                                POLONIEX, HITBTC, BITSTAMP, COINBASE, BITMEX, KRAKEN, KRAKEN_FUTURES, BINANCE, BINANCE_MARGIN, EXX, HUOBI, HUOBI_US, HUOBI_DM,
+                                OKCOIN, OKEX, COINBENE, BYBIT, FTX, TRADES_SWAP, TICKER_SWAP, L2_BOOK_SWAP, TRADES_FUTURES, TICKER_FUTURES, L2_BOOK_FUTURES,
                                 LIMIT, MARKET, FILL_OR_KILL, IMMEDIATE_OR_CANCEL, MAKER_OR_CANCEL, DERIBIT, INSTRUMENT, BITTREX, BITCOINCOM, BINANCE_US,
                                 BINANCE_JERSEY, BINANCE_FUTURES)
 from cryptofeed.pairs import gen_pairs
@@ -86,6 +86,7 @@ _feed_to_exchange_map = {
         KRAKEN: 'book',
         KRAKEN_FUTURES: 'book',
         BINANCE: 'depth@100ms',
+        BINANCE_MARGIN: 'depth@100ms',
         BINANCE_US: 'depth@100ms',
         BINANCE_JERSEY: 'depth@100ms',
         BINANCE_FUTURES: 'depth@100ms',
@@ -114,6 +115,7 @@ _feed_to_exchange_map = {
         KRAKEN: UNSUPPORTED,
         KRAKEN_FUTURES: UNSUPPORTED,
         BINANCE: UNSUPPORTED,
+        BINANCE_MARGIN: UNSUPPORTED,
         BINANCE_US: UNSUPPORTED,
         BINANCE_JERSEY: UNSUPPORTED,
         BINANCE_FUTURES: UNSUPPORTED,
@@ -139,6 +141,7 @@ _feed_to_exchange_map = {
         KRAKEN: 'trade',
         KRAKEN_FUTURES: 'trade',
         BINANCE: 'aggTrade',
+        BINANCE_MARGIN: 'aggTrade',
         BINANCE_US: 'aggTrade',
         BINANCE_JERSEY: 'aggTrade',
         BINANCE_FUTURES: 'aggTrade',
@@ -167,6 +170,7 @@ _feed_to_exchange_map = {
         KRAKEN: TICKER,
         KRAKEN_FUTURES: 'ticker_lite',
         BINANCE: 'ticker',
+        BINANCE_MARGIN: 'ticker',
         BINANCE_US: 'ticker',
         BINANCE_JERSEY: 'ticker',
         BINANCE_FUTURES: UNSUPPORTED,
