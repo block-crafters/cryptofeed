@@ -116,7 +116,7 @@ class BinanceFutures(Binance):
         if self.use_private_channels:
             # NOTE: Implement each case if needed
             if msg['e'] == 'listenKeyExpired':
-                pass
+                LOG.warning('listen_key was expired')
             elif msg['e'] == 'ACCOUNT_UPDATE':
                 pass
             elif msg['e'] == 'ORDER_TRADE_UPDATE':

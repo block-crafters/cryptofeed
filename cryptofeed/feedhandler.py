@@ -155,6 +155,23 @@ class FeedHandler:
                     break
             await asyncio.sleep(self.timeout_interval)
 
+    async def _watch_listen_key(self, feed, websocket):
+        """
+        BINANCE user data need extension
+        Doing a PUT on a listenKey will extend its validity for 60 minutes.
+        """
+        while websocket.open:
+            LOG.debug(('feed.id', feed.id))
+            if feed.id in [BINANCE_FUTURES, BINANCE] and feed.use_private_channels:
+                listen_key_start_time = getattr(feed, 'listen_key_start_time', None)
+                time_diff = time() - listen_key_start_time
+
+                if 50 * 60 < time_diff < 55 * 60:
+                    LOG.debug("extend binance listen_key")
+                    feed.extend_listen_key_validity()
+
+            await asyncio.sleep(self.timeout_interval)
+
     async def _rest_connect(self, feed):
         """
         Connect to REST feed
@@ -190,6 +207,8 @@ class FeedHandler:
                 # has been received (as opposed to a missing ping)
                 async with websockets.connect(feed.address, ping_interval=30, ping_timeout=None, max_size=2**23) as websocket:
                     asyncio.ensure_future(self._watch(feed.uuid, websocket))
+                    if feed.id in [BINANCE_FUTURES, BINANCE] and feed.use_private_channels:
+                        asyncio.ensure_future(self._watch_listen_key(feed, websocket))
                     # connection was successful, reset retry count and delay
                     retries = 0
                     delay = 1
