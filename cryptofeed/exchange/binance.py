@@ -8,6 +8,7 @@ import os
 import asyncio
 import json
 import logging
+import time
 from decimal import Decimal
 
 import aiohttp
@@ -37,12 +38,14 @@ class Binance(Feed):
         self.ws_endpoint = 'wss://stream.binance.com:9443'
         self.rest_endpoint = 'https://www.binance.com/api/v1'
         self.address = self._address()
+        self.listen_key_start_time = None
         self._reset()
 
     def _address(self):
         if self.use_private_channels:
-            listen_key = self.rest_client.create_listen_key().get('listenKey')
-            address = self.ws_endpoint+f'/ws/{listen_key}'
+            self.listen_key = self.rest_client.create_listen_key().get('listenKey')
+            address = self.ws_endpoint+f'/ws/{self.listen_key}'
+            self.listen_key_start_time = time.time()
             return address
         else:
             address = self.ws_endpoint+'/stream?streams='
@@ -56,6 +59,16 @@ class Binance(Feed):
     def _reset(self):
         self.l2_book = {}
         self.last_update_id = {}
+
+    def extend_listen_key_validity(self):
+        """
+        Extend user data listen_key validity and reset start_time
+        """
+        try:
+            self.rest_client.keepalive_listen_key(self.listen_key)
+            self.listen_key_start_time = time.time()
+        except:
+            LOG.error("Failed to keepalive listen_key", exc_info=True)
 
     async def _trade(self, msg):
         """
