@@ -1,9 +1,9 @@
 from dotenv import load_dotenv
 
-from cryptofeed.backends.redis import BookLatestRedis
+from cryptofeed.backends.redis import BookLatestRedis, PositionRedis
 from cryptofeed import FeedHandler
 from cryptofeed.exchanges import Bitmex
-from cryptofeed.defines import L2_BOOK
+from cryptofeed.defines import L2_BOOK, POSITION
 
 load_dotenv(verbose=True)
 
@@ -11,6 +11,7 @@ def main():
     f = FeedHandler()
 
     f.add_feed(Bitmex(max_depth=2, pairs=['XBTUSD'], channels=[L2_BOOK], callbacks={L2_BOOK: BookLatestRedis()}))
+    f.add_feed(Bitmex(use_private_channels=True, pairs=['XBTUSD'], channels=[POSITION], callbacks={POSITION: PositionRedis()}))
     f.run()
 
 
