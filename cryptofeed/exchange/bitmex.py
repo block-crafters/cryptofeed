@@ -14,7 +14,7 @@ import requests
 from sortedcontainers import SortedDict as sd
 
 from cryptofeed.feed import Feed
-from cryptofeed.defines import L2_BOOK, BUY, SELL, BID, ASK, TRADES, FUNDING, BITMEX, INSTRUMENT, TICKER, ORDER
+from cryptofeed.defines import L2_BOOK, BUY, SELL, BID, ASK, TRADES, FUNDING, POSITION, BITMEX, INSTRUMENT, TICKER, ORDER
 from cryptofeed.rest.bitmex import Bitmex as RestBitmex
 from cryptofeed.standards import timestamp_normalize
 
@@ -259,6 +259,10 @@ class Bitmex(Feed):
                 new_info = self.parse_order(data)
                 await self.callback(ORDER, feed=self.id, pair=data['symbol'], **new_info)
 
+    async def _position(self, msg):
+        for data in msg['data']:
+            await self.callback(POSITION, feed=self.id, pair=data['symbol'], **data)
+
     async def message_handler(self, msg: str, timestamp: float):
         msg = json.loads(msg, parse_float=Decimal)
         if 'info' in msg:
@@ -283,7 +287,8 @@ class Bitmex(Feed):
                 await self._ticker(msg)
             elif msg['table'] == 'order':
                 await self._order(msg)
-
+            elif msg['table'] == 'position':
+                await self._position(msg)
 
             else:
                 LOG.warning("%s: Unhandled message %s", self.id, msg)
