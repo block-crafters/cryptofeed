@@ -48,6 +48,7 @@ VOLUME = 'volume'
 FUNDING = 'funding'
 INSTRUMENT = 'instrument'
 UNSUPPORTED = 'unsupported'
+POSITION = 'position'
 
 
 L2_BOOK_SWAP = 'l2_book_swap'
