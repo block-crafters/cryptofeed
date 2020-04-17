@@ -53,10 +53,22 @@ class BackendTickerCallback:
         data = {'feed': feed, 'pair': pair, 'bid': self.numeric_type(bid), 'ask': self.numeric_type(ask), 'timestamp': timestamp}
         await self.write(feed, pair, timestamp, data)
 
+
 class BackendOrderCallback:
     async def __call__(self, *, feed: str, pair: str, **kwargs):
         order_id = kwargs['order_id']
         self.key = f'order-{order_id}'
+        for key in kwargs:
+            if isinstance(kwargs[key], Decimal):
+                kwargs[key] = self.numeric_type(kwargs[key])
+        kwargs['feed'] = feed
+        kwargs['pair'] = pair
+        await self.write(feed, pair, kwargs)
+
+
+class BackendOrderCallback:
+    async def __call__(self, *, feed: str, pair: str, **kwargs):
+        self.key = f'position'
         for key in kwargs:
             if isinstance(kwargs[key], Decimal):
                 kwargs[key] = self.numeric_type(kwargs[key])

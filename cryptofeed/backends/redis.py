@@ -74,6 +74,25 @@ class RedisOrderCallback(RedisCallback):
         await self.redis.set(f"{self.key}-{feed}-{pair}", json.dumps(order))
 
 
+class RedisPositionCallback(RedisCallback):
+    async def write(self, feed: str, pair: str, data: dict):
+        redis_key = f"{self.key}-{feed}-{pair}"
+        if self.redis is None:
+            self.redis = await aioredis.create_redis_pool(self.conn_str, encoding='utf-8')
+
+        position = {}
+        position_str = await self.redis.get(redis_key)
+
+        if position_str:
+            position = json.loads(position_str)
+
+            if position is None:
+                position = {}
+
+        position.update(data)
+        await self.redis.set(f"{self.key}-{feed}-{pair}", json.dumps(position))
+
+
 class TradeRedis(RedisZSetCallback, BackendTradeCallback):
     default_key = 'trades'
 
@@ -128,3 +147,7 @@ class TickerStream(RedisStreamCallback, BackendTickerCallback):
 
 class OrderRedis(RedisOrderCallback, BackendOrderCallback):
     default_key = 'order'
+
+
+class PositionRedis(RedisPositionCallback, BackendOrderCallback):
+    default_key = 'position'
