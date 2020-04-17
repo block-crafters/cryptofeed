@@ -8,7 +8,7 @@ import json
 
 import aioredis
 
-from cryptofeed.backends.backend import BackendBookCallback, BackendBookDeltaCallback, BackendTickerCallback, BackendTradeCallback, BackendFundingCallback, BackendOrderCallback
+from cryptofeed.backends.backend import BackendBookCallback, BackendBookDeltaCallback, BackendTickerCallback, BackendTradeCallback, BackendFundingCallback, BackendOrderCallback, BackendPositionCallback
 
 
 class RedisCallback:
@@ -149,5 +149,5 @@ class OrderRedis(RedisOrderCallback, BackendOrderCallback):
     default_key = 'order'
 
 
-class PositionRedis(RedisPositionCallback, BackendOrderCallback):
+class PositionRedis(RedisPositionCallback, BackendPositionCallback):
     default_key = 'position'

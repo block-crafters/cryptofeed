@@ -66,7 +66,7 @@ class BackendOrderCallback:
         await self.write(feed, pair, kwargs)
 
 
-class BackendOrderCallback:
+class BackendPositionCallback:
     async def __call__(self, *, feed: str, pair: str, **kwargs):
         self.key = f'position'
         for key in kwargs:
