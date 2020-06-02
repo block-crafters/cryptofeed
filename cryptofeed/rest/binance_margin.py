@@ -1,11 +1,9 @@
 import os
-from dotenv import load_dotenv
 import logging
 
 from cryptofeed.rest.binance import Binance
 from cryptofeed.defines import BINANCE_MARGIN
 
-load_dotenv()
 LOG = logging.getLogger('rest')
 
 class BinanceMargin(Binance):

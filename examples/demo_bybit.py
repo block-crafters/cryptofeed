@@ -1,4 +1,5 @@
 from dotenv import load_dotenv
+from pathlib import Path
 
 from cryptofeed.callback import TradeCallback, BookCallback
 from cryptofeed.backends.redis import OrderRedis
@@ -6,7 +7,9 @@ from cryptofeed import FeedHandler
 from cryptofeed.exchanges import Bybit
 from cryptofeed.defines import TRADES, L2_BOOK, ORDER, BID, ASK
 
-load_dotenv(verbose=True)
+# Look for .env file in the directory where this process runs.
+env_path = Path('.') / '.env'
+load_dotenv(dotenv_path=env_path, verbose=True, override=True)
 
 async def trade(feed, pair, order_id, timestamp, side, amount, price):
     print(f"Timestamp: {timestamp} Feed: {feed} Pair: {pair} ID: {order_id} Side: {side} Amount: {amount} Price: {price}")
