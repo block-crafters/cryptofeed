@@ -4,13 +4,11 @@ import hmac
 import logging
 import time
 
-from dotenv import load_dotenv
 import requests
 
 from cryptofeed.rest.api import API
 from cryptofeed.defines import BINANCE
 
-load_dotenv()
 LOG = logging.getLogger('rest')
 
 class Binance(API):
