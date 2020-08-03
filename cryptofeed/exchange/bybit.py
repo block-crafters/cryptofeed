@@ -94,6 +94,7 @@ class Bybit(Feed):
         ts = timestamp_normalize(self.id, data['timestamp'])
         order = {
             'order_id': data['order_id'],
+            'client_order_id': data.get('order_link_id', ''),
             'timestamp': ts
         }
         if data.get('side'):
