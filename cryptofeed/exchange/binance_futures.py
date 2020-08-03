@@ -90,12 +90,12 @@ class BinanceFutures(Binance):
             }
         }
         """
-        print(data)
         order = data['o']
         ts = timestamp_normalize(self.id, data['E'])
         parsed_order = {
             'pair': pair_exchange_to_std(order['s']),
             'order_id': order['i'],
+            'client_order_id': order.get('c', ''),
             'timestamp': ts
         }
         parsed_order['side'] = BUY if order['S'] == 'BUY' else SELL
