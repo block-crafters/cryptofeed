@@ -288,6 +288,7 @@ class Binance(Feed):
         order = {
             'pair': pair_exchange_to_std(data['s']),
             'order_id': data['i'],
+            'client_order_id': data.get('c', ''),
             'timestamp': ts
         }
         order['side'] = BUY if data['S'] == 'BUY' else SELL

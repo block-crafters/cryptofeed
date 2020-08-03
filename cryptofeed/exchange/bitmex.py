@@ -84,6 +84,7 @@ class Bitmex(Feed):
         ts = timestamp_normalize(self.id, data['timestamp'])
         order = {
             'order_id': data['orderID'],
+            'client_order_id': data.get('clOrdID', ''),
             'timestamp': ts
         }
         if data.get('side'):
