@@ -23,9 +23,10 @@ from cryptofeed.exchanges import *
 from cryptofeed.nbbo import NBBO
 from cryptofeed.feed import RestFeed
 from cryptofeed.exceptions import ExhaustedRetries
+import logging
 
 
-LOG = get_logger('feedhandler', 'feedhandler.log')
+LOG = get_logger('feedhandler', 'feedhandler.log', logging.INFO)
 
 
 # Maps string name to class name for use with config
@@ -219,6 +220,9 @@ class FeedHandler:
 
                     await feed.subscribe(websocket)
                     await self._handler(websocket, feed.message_handler, feed.uuid)
+            except asyncio.CancelledError as e:
+                LOG.info("%s: at FeedHandler._connect, asyncio task is cancelled, Return.", feed.uuid)
+                return
             except (ConnectionClosed, ConnectionAbortedError, ConnectionResetError, socket_error) as e:
                 LOG.warning("%s: encountered connection issue %s - reconnecting...", feed.id, str(e), exc_info=True)
                 await asyncio.sleep(delay)
@@ -244,6 +248,10 @@ class FeedHandler:
                 async for message in websocket:
                     self.last_msg[feed_id] = time()
                     await handler(message, self.last_msg[feed_id])
+        except asyncio.CancelledError as e:
+            LOG.info("%s: at FeedHandler._handler, asyncio task is cancelled, Close websocket. %s", feed_id, str(e))
+            await websocket.close()
+            raise e
         except Exception:
             if self.log_messages_on_error:
                 if feed_id in {HUOBI, HUOBI_US, HUOBI_DM}:
