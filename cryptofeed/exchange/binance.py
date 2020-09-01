@@ -316,7 +316,14 @@ class Binance(Feed):
                 pass
             elif msg['e'] == 'executionReport':
                 symbol = msg.get('s', '')
-                if symbol in self.pairs:
+                pairs = []
+                if self.config:
+                    channel = feed_to_exchange(self.id, ORDER)
+                    pairs = list(self.config[channel])
+                else:
+                    pairs = self.pairs
+
+                if symbol in pairs:
                     await self._order(msg)
 
             elif msg['e'] == 'listStatus':
