@@ -62,7 +62,7 @@ class BinanceFutures(Binance):
         "e":"ORDER_TRADE_UPDATE",     // Event Type
         "E":1568879465651,            // Event Time
         "T": 1568879465650,           //  Transaction Time
-        "o":{                             
+        "o":{
             "s":"BTCUSDT",              // Symbol
             "c":"TEST",                 // Client Order Id
             "S":"SELL",                 // Side
@@ -120,14 +120,17 @@ class BinanceFutures(Binance):
             elif msg['e'] == 'ACCOUNT_UPDATE':
                 pass
             elif msg['e'] == 'ORDER_TRADE_UPDATE':
-                await self._order(msg)
+                symbol = msg.get('o', {}).get('s', '')
+                if symbol in self.pairs:
+                    await self._order(msg)
+
         else:
             # Combined stream events are wrapped as follows: {"stream":"<streamName>","data":<rawPayload>}
             # streamName is of format <symbol>@<channel>
             pair, _ = msg['stream'].split('@', 1)
             msg = msg['data']
             pair = pair.upper()
-            
+
             if msg['e'] == 'depthUpdate':
                 await self._book(msg, pair, timestamp)
             elif msg['e'] == 'aggTrade':

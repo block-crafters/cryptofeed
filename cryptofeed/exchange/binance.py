@@ -315,7 +315,10 @@ class Binance(Feed):
             elif msg['e'] == 'balanceUpdate':
                 pass
             elif msg['e'] == 'executionReport':
-                await self._order(msg)
+                symbol = msg.get('s', '')
+                if symbol in self.pairs:
+                    await self._order(msg)
+
             elif msg['e'] == 'listStatus':
                 pass        
         else:
