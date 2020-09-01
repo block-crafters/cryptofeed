@@ -11,6 +11,7 @@ load_dotenv(verbose=True)
 async def main():
     f = FeedHandler()
     f.add_feed(BinanceFutures(use_private_channels=True, max_depth=2, pairs=['BTC-USDT'], channels=[ORDER], callbacks={ORDER: OrderRedis()}))
+    f.add_feed(BinanceFutures(use_private_channels=True, config={ORDER: ['ETH-USDT']}, callbacks={ORDER: OrderRedis()}))
     f.add_feed(BinanceFutures(max_depth=2, pairs=['BTC-USDT'], channels=[L2_BOOK], callbacks={L2_BOOK: BookLatestRedis()}))
     f.run(start_loop=False)
 

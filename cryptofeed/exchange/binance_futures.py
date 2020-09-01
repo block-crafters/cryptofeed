@@ -121,7 +121,14 @@ class BinanceFutures(Binance):
                 pass
             elif msg['e'] == 'ORDER_TRADE_UPDATE':
                 symbol = msg.get('o', {}).get('s', '')
-                if symbol in self.pairs:
+                pairs = []
+                if self.config:
+                    channel = feed_to_exchange(self.id, ORDER)
+                    pairs = list(self.config[channel])
+                else:
+                    pairs = self.pairs
+
+                if symbol in pairs:
                     await self._order(msg)
 
         else:
