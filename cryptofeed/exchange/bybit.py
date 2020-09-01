@@ -8,7 +8,7 @@ from sortedcontainers import SortedDict as sd
 from cryptofeed.feed import Feed
 from cryptofeed.defines import BYBIT, BUY, SELL, TRADES, BID, ASK, L2_BOOK, ORDER
 from cryptofeed.rest.bybit import Bybit as RestBybit
-from cryptofeed.standards import timestamp_normalize, pair_exchange_to_std as normalize_pair
+from cryptofeed.standards import feed_to_exchange, timestamp_normalize, pair_exchange_to_std as normalize_pair
 
 
 LOG = logging.getLogger('feedhandler')
@@ -41,6 +41,7 @@ class Bybit(Feed):
         elif "orderBookL2_25" in msg["topic"]:
             await self._book(msg)
         elif 'order' == msg['topic']:
+            
             await self._order(msg)
         else:
             LOG.warning("%s: Invalid message type %s", self.id, msg)
@@ -65,7 +66,7 @@ class Bybit(Feed):
                     topic = chan
                 else:
                     topic = f'{chan}.{pair}'
-                
+
                 await websocket.send(json.dumps(
                     {
                         "op": "subscribe",
@@ -178,7 +179,13 @@ class Bybit(Feed):
         await self.book_callback(self.l2_book[pair], L2_BOOK, pair, forced, delta, msg['timestamp_e6'] / 1000000)
 
     async def _order(self, msg):
+        if self.config:
+            channel = feed_to_exchange(self.id, ORDER)
+            pairs = list(self.config[channel])
+        else:
+            pairs = self.pairs
+
         for data in msg['data']:
-            if data.get('order_status'):
+            if data.get('order_status') and data.get('symbol', '') in pairs:
                 new_info = self.parse_order(data)
                 await self.callback(ORDER, feed=self.id, pair=normalize_pair(data['symbol']), **new_info)

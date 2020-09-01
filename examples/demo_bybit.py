@@ -25,6 +25,7 @@ def main():
     f.add_feed(Bybit(pairs=['BTC-USD', 'ETH-USD', 'XRP-USD', 'EOS-USD'], channels=[TRADES], callbacks={TRADES: TradeCallback(trade)}))
     f.add_feed(Bybit(pairs=['BTC-USD', 'ETH-USD', 'XRP-USD', 'EOS-USD'], channels=[L2_BOOK], callbacks={L2_BOOK: BookCallback(book)}))
     f.add_feed(Bybit(config={ORDER:['BTC-USD']}, callbacks={ORDER: OrderRedis()}, use_private_channels=True))
+    f.add_feed(Bybit(pairs=['ETH-USD'], channels=[ORDER], callbacks={ORDER: OrderRedis()}, use_private_channels=True))
     f.run()
 
 
