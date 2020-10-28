@@ -4,10 +4,12 @@ Copyright (C) 2017-2019  Bryant Moscon - bmoscon@gmail.com
 Please see the LICENSE file for the terms and conditions
 associated with this software.
 '''
+import asyncio
 import json
 import re
 import logging
 from decimal import Decimal
+import os
 import zlib
 
 from sortedcontainers import SortedDict as sd
@@ -15,6 +17,7 @@ from sortedcontainers import SortedDict as sd
 from cryptofeed.feed import Feed
 from cryptofeed.defines import TRADES, BUY, SELL, BID, ASK, TICKER, L2_BOOK, OKCOIN
 from cryptofeed.standards import pair_exchange_to_std, timestamp_normalize
+from cryptofeed.rest.okex import OKEx as RestOKEx
 
 
 LOG = logging.getLogger('feedhandler')
@@ -28,10 +31,18 @@ class OKCoin(Feed):
         super().__init__('wss://real.okcoin.com:8443/ws/v3', pairs=pairs, channels=channels, callbacks=callbacks, **kwargs)
         self.book_depth = 200
 
+        if self.use_private_channels:
+            self.key_id = os.environ.get('OKEX_API_KEY')
+            self.key_secret = os.environ.get('OKEX_SECRET_KEY')
+            self.passphrase = os.environ.get('OKEX_PASSWORD')
+
     def __reset(self):
         self.l2_book = {}
 
     async def subscribe(self, websocket):
+        if self.use_private_channels:
+            # wait for login
+            await asyncio.sleep(0.5)
         self.__reset()
         if self.config:
             for chan in self.config:
@@ -119,6 +130,8 @@ class OKCoin(Feed):
                 LOG.error("%s: Error: %s", self.id, msg)
             elif msg['event'] == 'subscribe':
                 pass
+            elif msg['event'] == 'login':
+                self.logged_in = True
             else:
                 LOG.warning("%s: Unhandled event %s", self.id, msg)
         elif 'table' in msg:
@@ -132,3 +145,12 @@ class OKCoin(Feed):
                 LOG.warning("%s: Unhandled message %s", self.id, msg)
         else:
             LOG.warning("%s: Unhandled message %s", self.id, msg)
+
+    async def authenticate(self, websocket):
+        auth_info = RestOKEx.generate_signature('GET', '/users/self/verify', key_id=self.key_id, key_secret=self.key_secret, passphrase=self.passphrase)
+        api_key = auth_info.get('api_key')
+        passphrase = auth_info.get('passphrase')
+        timestamp = auth_info.get('timestamp')
+        sign = auth_info.get('sign')
+        a = await websocket.send(json.dumps({"op": "login",
+                                         "args": [api_key, passphrase, timestamp, sign]}))

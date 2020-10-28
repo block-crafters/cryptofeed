@@ -54,6 +54,7 @@ POSITION = 'position'
 L2_BOOK_SWAP = 'l2_book_swap'
 TRADES_SWAP = 'trades_swap'
 TICKER_SWAP = 'ticker_swap'
+ORDER_SWAP = 'order_swap'
 
 
 L2_BOOK_FUTURES = 'l2_book_futures'
