@@ -24,9 +24,8 @@ async def book(feed, pair, book, timestamp):
 
 
 def main():
-    fh = FeedHandler()
-
-    fh.add_feed(OKEx(pairs=['ETH-USD-SWAP'], channels=[ORDER_SWAP], callbacks={ORDER_SWAP: OrderRedis()}, use_private_channels=True))
+    fh = FeedHandler(timeout_interval=180)
+    fh.add_feed(OKEx(pairs=['ETH-USD-SWAP', 'ETH-USDT-SWAP'], channels=[ORDER_SWAP], callbacks={ORDER_SWAP: OrderRedis()}, use_private_channels=True))
 
     fh.run()
 
