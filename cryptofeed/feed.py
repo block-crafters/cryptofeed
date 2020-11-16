@@ -9,7 +9,8 @@ from collections import defaultdict
 
 from cryptofeed.callback import Callback
 from cryptofeed.standards import pair_std_to_exchange, feed_to_exchange, load_exchange_pair_mapping
-from cryptofeed.defines import TRADES, TICKER, L2_BOOK, L3_BOOK, VOLUME, FUNDING, POSITION, BOOK_DELTA, INSTRUMENT, BID, ASK
+from cryptofeed.defines import (TRADES, TICKER, L2_BOOK, L2_BOOK_SWAP, L3_BOOK, ORDER, ORDER_SWAP,
+                                VOLUME, FUNDING, POSITION, BOOK_DELTA, INSTRUMENT, BID, ASK)
 from cryptofeed.util.book import book_delta, depth
 
 
@@ -59,6 +60,7 @@ class Feed:
 
         if callbacks:
             for cb_type, cb_func in callbacks.items():
+                cb_type = self.generalize_callback_key(cb_type)
                 self.callbacks[cb_type] = cb_func
                 if cb_type == BOOK_DELTA:
                     self.do_deltas = True
@@ -66,6 +68,26 @@ class Feed:
         for key, callback in self.callbacks.items():
             if not isinstance(callback, list):
                 self.callbacks[key] = [callback]
+
+    @staticmethod
+    def generalize_callback_key(callback_type):
+        """
+        market별 callback key를 default key로 변경시켜준다.
+        ex) L2_BOOK_SWAP, L2_BOOK_FUTURES -> L2_BOOK
+
+        Params:
+            callback_type(str)
+        """
+        # NOTE(boseok): l2_book, order 이외의 subscription이 필요시, case 추가
+        cb_type = None
+        if callback_type == L2_BOOK_SWAP:
+            cb_type = L2_BOOK
+        elif callback_type == ORDER_SWAP:
+            cb_type = ORDER
+        else:
+            cb_type = callback_type
+
+        return cb_type
 
     async def book_callback(self, book, book_type, pair, forced, delta, timestamp):
         """
