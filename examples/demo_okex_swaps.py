@@ -7,10 +7,10 @@ associated with this software.
 import dotenv
 
 from cryptofeed.callback import TickerCallback, TradeCallback, BookCallback
-from cryptofeed.backends.redis import OrderRedis
+from cryptofeed.backends.redis import OrderRedis, BookLatestRedis
 from cryptofeed import FeedHandler
-from cryptofeed.exchanges import OKEx
-from cryptofeed.defines import L2_BOOK_SWAP, L2_BOOK, BID, ASK, TRADES, TRADES_SWAP, ORDER_SWAP
+from cryptofeed.exchanges import OKExSwap
+from cryptofeed.defines import L2_BOOK_SWAP, BID, ASK, TRADES, TRADES_SWAP, ORDER_SWAP
 
 dotenv.load_dotenv()
 
@@ -25,7 +25,8 @@ async def book(feed, pair, book, timestamp):
 
 def main():
     fh = FeedHandler(timeout_interval=180)
-    fh.add_feed(OKEx(pairs=['ETH-USD-SWAP', 'ETH-USDT-SWAP'], channels=[ORDER_SWAP], callbacks={ORDER_SWAP: OrderRedis()}, use_private_channels=True))
+    fh.add_feed(OKExSwap(pairs=['ETH-USD-SWAP', 'ETH-USDT-SWAP'], channels=[L2_BOOK_SWAP], callbacks={L2_BOOK_SWAP: book}, use_private_channels=True))
+    fh.add_feed(OKExSwap(pairs=['ETH-USD-SWAP', 'ETH-USDT-SWAP'], channels=[ORDER_SWAP], callbacks={ORDER_SWAP: OrderRedis()}, use_private_channels=True))
 
     fh.run()
 

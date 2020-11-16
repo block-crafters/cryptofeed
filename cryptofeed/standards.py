@@ -15,8 +15,8 @@ import pandas as pd
 from cryptofeed.defines import (L2_BOOK, L3_BOOK, TRADES, TICKER, VOLUME, FUNDING, POSITION, UNSUPPORTED, BITFINEX, GEMINI, BITMAX,
                                 POLONIEX, HITBTC, BITSTAMP, COINBASE, BITMEX, KRAKEN, KRAKEN_FUTURES, BINANCE, BINANCE_MARGIN, EXX, HUOBI, HUOBI_US, HUOBI_DM,
                                 OKCOIN, OKEX, COINBENE, BYBIT, FTX, TRADES_SWAP, TICKER_SWAP, L2_BOOK_SWAP, ORDER_SWAP, TRADES_FUTURES, TICKER_FUTURES, L2_BOOK_FUTURES,
-                                LIMIT, MARKET, FILL_OR_KILL, IMMEDIATE_OR_CANCEL, MAKER_OR_CANCEL, DERIBIT, INSTRUMENT, BITTREX, BITCOINCOM, BINANCE_US,
-                                BINANCE_JERSEY, BINANCE_FUTURES)
+                                ORDER_FUTURES, LIMIT, MARKET, FILL_OR_KILL, IMMEDIATE_OR_CANCEL, MAKER_OR_CANCEL, DERIBIT, INSTRUMENT, BITTREX, BITCOINCOM, BINANCE_US,
+                                BINANCE_JERSEY, BINANCE_FUTURES, OKEX_SWAP)
 from cryptofeed.pairs import gen_pairs
 from cryptofeed.exceptions import UnsupportedTradingPair, UnsupportedDataFeed, UnsupportedTradingOption
 
@@ -66,7 +66,7 @@ def pair_exchange_to_std(pair):
 
 
 def timestamp_normalize(exchange, ts):
-    if exchange in {BITMEX, COINBASE, HITBTC, OKCOIN, OKEX, BYBIT, FTX, BITCOINCOM}:
+    if exchange in {BITMEX, COINBASE, HITBTC, OKCOIN, OKEX, OKEX_SWAP, BYBIT, FTX, BITCOINCOM}:
         return pd.Timestamp(ts).timestamp()
     elif exchange in  {HUOBI, HUOBI_US, HUOBI_DM, BITFINEX, COINBENE, DERIBIT, BINANCE, BINANCE_US, BINANCE_JERSEY, BINANCE_FUTURES, GEMINI, BITTREX, BITMAX, KRAKEN_FUTURES}:
         return ts / 1000.0
@@ -96,6 +96,7 @@ _feed_to_exchange_map = {
         HUOBI_DM: 'depth.step0',
         OKCOIN: 'spot/depth',
         OKEX: 'spot/depth',
+        OKEX_SWAP: 'swap/depth',
         COINBENE: L2_BOOK,
         DERIBIT: 'book',
         BYBIT: 'orderBookL2_25',
@@ -125,6 +126,7 @@ _feed_to_exchange_map = {
         HUOBI_DM: UNSUPPORTED,
         OKCOIN: UNSUPPORTED,
         OKEX: UNSUPPORTED,
+        OKEX_SWAP: UNSUPPORTED,
         BYBIT: UNSUPPORTED,
         FTX: UNSUPPORTED,
         GEMINI: UNSUPPORTED,
@@ -151,6 +153,7 @@ _feed_to_exchange_map = {
         HUOBI_DM: 'trade.detail',
         OKCOIN: 'spot/trade',
         OKEX: 'spot/trade',
+        OKEX_SWAP: 'swap/trade',
         COINBENE: TRADES,
         DERIBIT: 'trades',
         BYBIT:  'trade',
@@ -179,6 +182,7 @@ _feed_to_exchange_map = {
         HUOBI_DM: UNSUPPORTED,
         OKCOIN: 'spot/ticker',
         OKEX: 'spot/ticker',
+        OKEX_SWAP: 'swap/ticker',
         COINBENE: TICKER,
         DERIBIT: "ticker",
         BYBIT: UNSUPPORTED,
@@ -200,16 +204,16 @@ _feed_to_exchange_map = {
         BITMEX: 'position'
     },
     TRADES_SWAP: {
-        OKEX: 'swap/trade'
+        OKEX_SWAP: 'swap/trade'
     },
     TICKER_SWAP: {
-        OKEX: 'swap/ticker'
+        OKEX_SWAP: 'swap/ticker'
     },
     L2_BOOK_SWAP: {
-        OKEX: 'swap/depth'
+        OKEX_SWAP: 'swap/depth'
     },
     ORDER_SWAP: {
-        OKEX: 'swap/order'
+        OKEX_SWAP: 'swap/order'
     },
     TRADES_FUTURES: {
         OKEX: 'futures/trade'
@@ -219,6 +223,9 @@ _feed_to_exchange_map = {
     },
     L2_BOOK_FUTURES: {
         OKEX: 'futures/depth'
+    },
+    ORDER_FUTURES: {
+        OKEX: 'futures/order'
     },
     INSTRUMENT: {
         BITMEX: 'instrument'
