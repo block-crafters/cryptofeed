@@ -5,6 +5,7 @@ Please see the LICENSE file for the terms and conditions
 associated with this software.
 '''
 import json
+import time
 
 import aioredis
 
@@ -69,6 +70,8 @@ class RedisOrderCallback(RedisCallback):
 
         order.update(data)
         order['unhandled_amount'] = unhandled_amount
+        redis_timestamp = time.time()
+        order['redis_timestamp'] = redis_timestamp
 
         print(json.dumps(order))
         await self.redis.set(f"{self.key}-{feed}-{pair}", json.dumps(order))
