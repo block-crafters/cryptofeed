@@ -73,16 +73,33 @@ class Bitmex(Feed, BitmexRestMixin):
 
         # 0 should be True at `if` statement.
         if data.get('orderQty') is not None:
-            order['qty'] = data['orderQty']
+            order['amount'] = Decimal(data['orderQty'])
         if data.get('cumQty') is not None:
-            order['cum_exec_qty'] = data['cumQty']
+            order['filled'] = Decimal(data['cumQty'])
         if data.get('leavesQty') is not None:
-            order['leaves_qty'] = data['leavesQty']
+            order['remaining'] = Decimal(data['leavesQty'])
         if data.get('price') is not None:
-            order['price'] = data['price']
-        if (data.get('avgPrice') is not None) or (data.get('avgPx') is not None):
-            order['average'] = (data.get('avgPrice') or data.get('avgPx') or 0)
-
+            order['price'] = Decimal(data['price'])
+        if data.get('avgPx') is not None:
+            order['average'] = Decimal(data.get('avgPx'))
+        if data.get('clOrdID') is not None:
+            order['clientOrderId'] = data.get('clOrdID')
+        if data.get('stopPx') is not None:
+            order['stopPrice'] = data.get('stopPx')
+        if data.get('execInst') is not None:
+            order['postOnly'] = (data.get('execInst')=='ParticipateDoNotInitiate')
+        if data.get('ordType') is not None:
+            order['orderType'] = data.get('ordType')
+        if data.get('cost') is not None:
+            order['cost'] = data.get('cost')
+        if data.get('fee') is not None:
+            order['fee'] = data.get('fee')
+        if data.get('trades') is not None:
+            order['trades'] = data.get('trades')
+        if data.get('timeInForce') is not None:
+            order['timeInForce'] =  Bitmex.parse_time_in_force(data.get('timeInForce'))
+        if data.get('transactTime') is not None:
+            order['lastTradeTimestamp'] = self.timestamp_normalize(data.get('transactTime'))
         return order
 
     @staticmethod
@@ -97,6 +114,17 @@ class Bitmex(Feed, BitmexRestMixin):
         }
 
         ret = statuses.get(status, None)
+        return ret
+
+    @staticmethod
+    def parse_time_in_force(timeInForce):
+        times = {
+            'Day': 'Day',
+            'GoodTillCancel': 'GTC',
+            'ImmediateOrCancel': 'IOC',
+            'FillOrKill': 'FOK'
+        }
+        ret = times.get(timeInForce, None)
         return ret
 
     def __init__(self, sandbox=False, **kwargs):
@@ -527,32 +555,26 @@ class Bitmex(Feed, BitmexRestMixin):
     async def _order(self, msg: dict, timestamp: float):
         """
         Example:
-        BYBIT: BTC-USD-PERP: Order update: {'order_id': '3bf16772-e855-436c-a94d-fb5840e9f445', 
-        'order_link_id': '', 
-        'symbol': 'BTCUSD', 
-        'side': 'Buy', 
-        'order_type': 'Limit', 
-        'price': '48181', 
-        'qty': 1, 
-        'time_in_force': 'GoodTillCancel', 
-        'create_type': 'CreateByUser', 
-        'cancel_type': 'CancelByUser', 
-        'order_status': 'Cancelled', 
-        'leaves_qty': 0, 
-        'cum_exec_qty': 0, 
-        'cum_exec_value': '0', 
-        'cum_exec_fee': '0', 
-        'timestamp': datetime.datetime(2021, 8, 25, 2, 51, 40, 891000, tzinfo=datetime.timezone.utc), 
-        'take_profit': '0', 
-        'stop_loss': '0', 
-        'trailing_stop': '0', 
-        'last_exec_price': '0', 
-        'reduce_only': False, 
-        'close_on_trigger': False}
+        {
+        'feed': 'BITMEX', 
+        'symbol': 'BTC-USD-PERP', 
+        'order_id': '7e125225-2ae2-4dbf-9653-8d317d6420d8', 
+        'timestamp': 1630308315.87, 
+        'side': 'buy', 
+        'status': 'open', 
+        'amount': Decimal('100'), 
+        'filled': Decimal('0'), 
+        'remaining': Decimal('100'), 
+        'price': Decimal('37947'), 
+        'clientOrderId': '', 
+        'postOnly': False, 
+        'orderType': 'Limit', 
+        'timeInForce': 'GTC', 
+        'lastTradeTimestamp': 1630308315.87
+        }
         """
 
         LOG.info("Handling order msg")
-        
         for data in msg['data']:
             if data.get('ordStatus'):
                 new_info = self.parse_order(data)
