@@ -97,7 +97,7 @@ class Bitmex(Feed, BitmexRestMixin):
         if data.get('trades') is not None:
             order['trades'] = data.get('trades')
         if data.get('timeInForce') is not None:
-            order['timeInForce'] =  Bitmex.parse_time_in_force(data.get('timeInForce'))
+            order['timeInForce'] = Bitmex.parse_time_in_force(data.get('timeInForce'))
         if data.get('transactTime') is not None:
             order['lastTradeTimestamp'] = self.timestamp_normalize(data.get('transactTime'))
         return order
