@@ -16,7 +16,7 @@ from decimal import Decimal
 from sortedcontainers import SortedDict as sd
 from yapic import json
 
-from cryptofeed.defines import BID, ASK, BITMEX, BUY, FUNDING, FUTURES, L2_BOOK, LIQUIDATIONS, OPEN_INTEREST, PERPETUAL, SELL, TICKER, TRADES, UNFILLED
+from cryptofeed.defines import BID, ASK, BITMEX, BUY, FUNDING, FUTURES, L2_BOOK, LIQUIDATIONS, OPEN_INTEREST, PERPETUAL, SELL, TICKER, TRADES, UNFILLED, ORDER_INFO
 from cryptofeed.feed import Feed
 from cryptofeed.symbols import Symbol
 from cryptofeed.connection import AsyncConnection
@@ -35,7 +35,8 @@ class Bitmex(Feed, BitmexRestMixin):
         TICKER: 'quote',
         FUNDING: 'funding',
         OPEN_INTEREST: 'instrument',
-        LIQUIDATIONS: 'liquidation'
+        LIQUIDATIONS: 'liquidation',
+        ORDER_INFO: 'order'
     }
     request_limit = 0.5
 
@@ -58,6 +59,73 @@ class Bitmex(Feed, BitmexRestMixin):
             info['instrument_type'][s.normalized] = stype
 
         return ret, info
+
+    def parse_order(self, data):
+        timestamp = self.timestamp_normalize(data['timestamp'])
+        order = {
+            'order_id': data['orderID'],
+            'timestamp': timestamp
+        }
+        if data.get('side'):
+            order['side'] = BUY if data['side'] == 'Buy' else SELL
+        if data.get('ordStatus'):
+            order['status'] = Bitmex.parse_order_status(data['ordStatus'])
+
+        # 0 should be True at `if` statement.
+        if data.get('orderQty') is not None:
+            order['amount'] = Decimal(data['orderQty'])
+        if data.get('cumQty') is not None:
+            order['filled'] = Decimal(data['cumQty'])
+        if data.get('leavesQty') is not None:
+            order['remaining'] = Decimal(data['leavesQty'])
+        if data.get('price') is not None:
+            order['price'] = Decimal(data['price'])
+        if data.get('avgPx') is not None:
+            order['average'] = Decimal(data.get('avgPx'))
+        if data.get('clOrdID') is not None:
+            order['clientOrderId'] = data.get('clOrdID')
+        if data.get('stopPx') is not None:
+            order['stopPrice'] = data.get('stopPx')
+        if data.get('execInst') is not None:
+            order['postOnly'] = (data.get('execInst')=='ParticipateDoNotInitiate')
+        if data.get('ordType') is not None:
+            order['orderType'] = data.get('ordType')
+        if data.get('cost') is not None:
+            order['cost'] = data.get('cost')
+        if data.get('fee') is not None:
+            order['fee'] = data.get('fee')
+        if data.get('trades') is not None:
+            order['trades'] = data.get('trades')
+        if data.get('timeInForce') is not None:
+            order['timeInForce'] = Bitmex.parse_time_in_force(data.get('timeInForce'))
+        if data.get('transactTime') is not None:
+            order['lastTradeTimestamp'] = self.timestamp_normalize(data.get('transactTime'))
+        return order
+
+    @staticmethod
+    def parse_order_status(status):
+        statuses = {
+            'PendingNew': 'open',
+            'New': 'open',
+            'PartiallyFilled': 'open',
+            'Filled': 'closed',
+            'Canceled': 'canceled',
+            'Rejected': 'rejected',
+        }
+
+        ret = statuses.get(status, None)
+        return ret
+
+    @staticmethod
+    def parse_time_in_force(timeInForce):
+        times = {
+            'Day': 'Day',
+            'GoodTillCancel': 'GTC',
+            'ImmediateOrCancel': 'IOC',
+            'FillOrKill': 'FOK'
+        }
+        ret = times.get(timeInForce, None)
+        return ret
 
     def __init__(self, sandbox=False, **kwargs):
         auth_api = 'wss://www.bitmex.com/realtime' if not sandbox else 'wss://testnet.bitmex.com/realtime'
@@ -484,6 +552,34 @@ class Bitmex(Feed, BitmexRestMixin):
                                     status=UNFILLED,
                                     timestamp=timestamp,
                                     receipt_timestamp=timestamp)
+    async def _order(self, msg: dict, timestamp: float):
+        """
+        Example:
+        {
+        'feed': 'BITMEX', 
+        'symbol': 'BTC-USD-PERP', 
+        'order_id': '7e125225-2ae2-4dbf-9653-8d317d6420d8', 
+        'timestamp': 1630308315.87, 
+        'side': 'buy', 
+        'status': 'open', 
+        'amount': Decimal('100'), 
+        'filled': Decimal('0'), 
+        'remaining': Decimal('100'), 
+        'price': Decimal('37947'), 
+        'clientOrderId': '', 
+        'postOnly': False, 
+        'orderType': 'Limit', 
+        'timeInForce': 'GTC', 
+        'lastTradeTimestamp': 1630308315.87
+        }
+        """
+
+        LOG.info("Handling order msg")
+        for data in msg['data']:
+            if data.get('ordStatus'):
+                new_info = self.parse_order(data)
+                symbol = self.exchange_symbol_to_std_symbol(data['symbol'])
+                await self.callback(ORDER_INFO, feed=self.id, symbol=symbol, **new_info)
 
     async def message_handler(self, msg: str, conn, timestamp: float):
         msg = json.loads(msg, parse_float=Decimal)
@@ -500,6 +596,8 @@ class Bitmex(Feed, BitmexRestMixin):
                 await self._ticker(msg, timestamp)
             elif msg['table'] == 'liquidation':
                 await self._liquidation(msg, timestamp)
+            elif msg['table'] == 'order':
+                await self._order(msg, timestamp)
             else:
                 LOG.warning("%s: Unhandled table=%r in %r", conn.uuid, msg['table'], msg)
         elif 'info' in msg:
