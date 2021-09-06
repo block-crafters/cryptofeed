@@ -86,7 +86,7 @@ class Bitmex(Feed, BitmexRestMixin):
         if data.get('price') is not None:
             order['price'] = Decimal(data['price'])
         if data.get('avgPx') is not None:
-            order['average'] = Decimal(data.get('avgPx'))
+            order['avgPrice'] = Decimal(data.get('avgPx'))
         if data.get('clOrdID') is not None:
             order['clientOrderId'] = data.get('clOrdID')
         if data.get('stopPx') is not None:
