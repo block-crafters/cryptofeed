@@ -115,21 +115,21 @@ class Bitmex(Feed, BitmexRestMixin):
         if data.get('symbol') is not None:
             position['symbol'] = self.exchange_symbol_to_std_symbol(data['symbol'])
         if data.get('initMargin') is not None:
-            position['initialMargin'] = data.get('initMargin')
+            position['initialMargin'] = Decimal(data.get('initMargin'))
         if data.get('maintMargin') is not None:
             position['maintenanceMargin'] = Decimal(data['maintMargin'])
         if data.get('avgEntryPrice') is not None:
-            position['entryPrice'] = data.get('avgEntryPrice')
+            position['entryPrice'] = Decimal(data.get('avgEntryPrice'))
         if data.get('homeNotional') is not None:
-            position['homeNotional'] = data.get('homeNotional')
+            position['homeNotional'] = Decimal(data.get('homeNotional'))
         if data.get('foreignNotional') is not None:
-            position['foreignNotional'] = data.get('foreignNotional')
+            position['foreignNotional'] = Decimal(data.get('foreignNotional'))
         if data.get('leverage') is not None:
-            position['leverage'] = data.get('leverage')
+            position['leverage'] = Decimal(data.get('leverage'))
         if data.get('unrealisedPnl') is not None:
             position['unrealizedPnl'] = Decimal(data['unrealisedPnl'])
         if data.get('currentQty') is not None:
-            position['contracts'] = data.get('currentQty')
+            position['contracts'] = Decimal(data.get('currentQty'))
         if data.get('liquidationPrice') is not None:
             position['liquidationPrice'] = Decimal(data['liquidationPrice'])
         if data.get('markPrice') is not None:
@@ -728,6 +728,7 @@ class Bitmex(Feed, BitmexRestMixin):
         'timestamp': datetime.datetime(2021, 9, 6, 6, 34, 35, 385000, tzinfo=datetime.timezone.utc), 
         'lastPrice': Decimal('3944.45'), 
         'lastValue': 394445
+        }
         """
 
         LOG.info("Handle position msg")
@@ -833,7 +834,6 @@ class Bitmex(Feed, BitmexRestMixin):
         for chan in self.subscription:
             print(chan)
             if chan in Bitmex.channels_without_symbol:
-                print("hee")
                 chans.append(f"{chan}")
             else:
                 for pair in self.subscription[chan]:
