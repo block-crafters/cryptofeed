@@ -16,7 +16,7 @@ from decimal import Decimal
 from sortedcontainers import SortedDict as sd
 from yapic import json
 
-from cryptofeed.defines import BID, ASK, BITMEX, BUY, FUNDING, FUTURES, L2_BOOK, LIQUIDATIONS, OPEN_INTEREST, PERPETUAL, SELL, TICKER, TRADES, UNFILLED, ORDER_INFO
+from cryptofeed.defines import BID, ASK, BITMEX, BUY, FUNDING, FUTURES, L2_BOOK, LIQUIDATIONS, OPEN_INTEREST, PERPETUAL, SELL, TICKER, TRADES, UNFILLED, ORDER_INFO, POSITIONS, BALANCES
 from cryptofeed.feed import Feed
 from cryptofeed.symbols import Symbol
 from cryptofeed.connection import AsyncConnection
@@ -36,8 +36,13 @@ class Bitmex(Feed, BitmexRestMixin):
         FUNDING: 'funding',
         OPEN_INTEREST: 'instrument',
         LIQUIDATIONS: 'liquidation',
-        ORDER_INFO: 'order'
+        ORDER_INFO: 'order',
+        POSITIONS: 'position',
+        BALANCES: 'margin'
     }
+    channels_without_symbol = [
+        'margin'
+    ]
     request_limit = 0.5
 
     @classmethod
@@ -81,7 +86,7 @@ class Bitmex(Feed, BitmexRestMixin):
         if data.get('price') is not None:
             order['price'] = Decimal(data['price'])
         if data.get('avgPx') is not None:
-            order['average'] = Decimal(data.get('avgPx'))
+            order['avgPrice'] = Decimal(data.get('avgPx'))
         if data.get('clOrdID') is not None:
             order['clientOrderId'] = data.get('clOrdID')
         if data.get('stopPx') is not None:
@@ -102,6 +107,48 @@ class Bitmex(Feed, BitmexRestMixin):
             order['lastTradeTimestamp'] = self.timestamp_normalize(data.get('transactTime'))
         return order
 
+    def parse_position(self, data):
+        timestamp = self.timestamp_normalize(data['timestamp'])
+        position = {
+            'timestamp': timestamp
+        }
+        if data.get('symbol') is not None:
+            position['symbol'] = self.exchange_symbol_to_std_symbol(data['symbol'])
+        if data.get('initMargin') is not None:
+            position['initialMargin'] = Decimal(data.get('initMargin'))
+        if data.get('maintMargin') is not None:
+            position['maintenanceMargin'] = Decimal(data['maintMargin'])
+        if data.get('avgEntryPrice') is not None:
+            position['entryPrice'] = Decimal(data.get('avgEntryPrice'))
+        if data.get('homeNotional') is not None:
+            position['homeNotional'] = Decimal(data.get('homeNotional'))
+        if data.get('foreignNotional') is not None:
+            position['foreignNotional'] = Decimal(data.get('foreignNotional'))
+        if data.get('leverage') is not None:
+            position['leverage'] = Decimal(data.get('leverage'))
+        if data.get('unrealisedPnl') is not None:
+            position['unrealizedPnl'] = Decimal(data['unrealisedPnl'])
+        if data.get('currentQty') is not None:
+            position['contracts'] = Decimal(data.get('currentQty'))
+        if data.get('liquidationPrice') is not None:
+            position['liquidationPrice'] = Decimal(data['liquidationPrice'])
+        if data.get('markPrice') is not None:
+            position['markPrice'] = Decimal(data['markPrice'])
+        return position
+
+    def parse_margin(self, data):
+        timestamp = self.timestamp_normalize(data['timestamp'])
+        balance = {
+            'timestamp': timestamp
+        }
+        if data.get('availableMargin') is not None:
+            balance['free'] = Decimal(data['availableMargin'])
+        if data.get('marginBalance') is not None:
+            balance['total'] = Decimal(data['marginBalance'])
+        if data.get('currency') is not None:
+            balance['currency'] = self.parse_currency(data['currency'])
+        return balance
+
     @staticmethod
     def parse_order_status(status):
         statuses = {
@@ -114,6 +161,14 @@ class Bitmex(Feed, BitmexRestMixin):
         }
 
         ret = statuses.get(status, None)
+        return ret
+
+    @staticmethod
+    def parse_currency(currency):
+        currencies = {
+            'XBt': 'BTC'
+        }
+        ret = currencies.get(currency, None)
         return ret
 
     @staticmethod
@@ -581,6 +636,159 @@ class Bitmex(Feed, BitmexRestMixin):
                 symbol = self.exchange_symbol_to_std_symbol(data['symbol'])
                 await self.callback(ORDER_INFO, feed=self.id, symbol=symbol, **new_info)
 
+    async def _position(self, msg: dict, timestamp: float):
+        """
+        {
+        'account': 917702, 
+        'symbol': 'ETHUSD', 
+        'currency': 'XBt', 
+        'underlying': 'ETH', 
+        'quoteCurrency': 'USD', 
+        'commission': Decimal('0.0005'), 
+        'initMarginReq': Decimal('0.01'), 
+        'maintMarginReq': Decimal('0.005'), 
+        'riskLimit': 7500000000, 
+        'leverage': 100, 
+        'crossMargin': True, 
+        'deleveragePercentile': 1, 
+        'rebalancedPnl': -3185, 
+        'prevRealisedPnl': 0, 
+        'prevUnrealisedPnl': 0, 
+        'prevClosePrice': Decimal('3937.92'), 
+        'openingTimestamp': datetime.datetime(2021, 9, 6, 6, 0, tzinfo=datetime.timezone.utc), 
+        'openingQty': 1, 
+        'openingCost': 382490, 
+        'openingComm': 1385, 
+        'openOrderBuyQty': 0, 
+        'openOrderBuyCost': 0, 
+        'openOrderBuyPremium': 0, 
+        'openOrderSellQty': 0, 
+        'openOrderSellCost': 0, 
+        'openOrderSellPremium': 0, 
+        'execBuyQty': 0, 
+        'execBuyCost': 0, 
+        'execSellQty': 0, 
+        'execSellCost': 0, 
+        'execQty': 0, 
+        'execCost': 0, 
+        'execComm': 0, 
+        'currentTimestamp': datetime.datetime(2021, 9, 6, 6, 34, 35, 385000, tzinfo=datetime.timezone.utc), 
+        'currentQty': 1, 
+        'currentCost': 382490, 
+        'currentComm': 1385, 
+        'realisedCost': 0, 
+        'unrealisedCost': 382490, 
+        'grossOpenCost': 0, 
+        'grossOpenPremium': 0, 
+        'grossExecCost': 0, 
+        'isOpen': True, 'markPrice': Decimal('3944.45'), 
+        'markValue': 394445, 'riskValue': 394445, 
+        'homeNotional': Decimal('0.05181347150259067'), 
+        'foreignNotional': Decimal('-204.37564766839378'), 
+        'posState': '', 
+        'posCost': 382490, 
+        'posCost2': 386869, 
+        'posCross': 4379, 
+        'posInit': 3825, 
+        'posComm': 196, 
+        'posLoss': 4379, 
+        'posMargin': 4021, 
+        'posMaint': 2774, 
+        'posAllowance': 0, 
+        'taxableMargin': 0, 
+        'initMargin': 0, 
+        'maintMargin': 15976, 
+        'sessionMargin': 0, 
+        'targetExcessMargin': 0, 
+        'varMargin': 0, 
+        'realisedGrossPnl': 0, 
+        'realisedTax': 0, 
+        'realisedPnl': -1385, 
+        'unrealisedGrossPnl': 11955, 
+        'longBankrupt': 0, 
+        'shortBankrupt': 0, 
+        'taxBase': 0, 
+        'indicativeTaxRate': None, 
+        'indicativeTax': 0, 
+        'unrealisedTax': 0, 
+        'unrealisedPnl': 11955, 
+        'unrealisedPnlPcnt': Decimal('0.0313'), 
+        'unrealisedRoePcnt': Decimal('3.1256'), 
+        'simpleQty': None, 
+        'simpleCost': None, 
+        'simpleValue': None, 
+        'simplePnl': None, 
+        'simplePnlPcnt': None, 
+        'avgCostPrice': Decimal('3824.9'), 
+        'avgEntryPrice': Decimal('3824.9'), 
+        'breakEvenPrice': Decimal('3870.6'), 
+        'marginCallPrice': 0, 
+        'liquidationPrice': 0, 
+        'bankruptPrice': 0, 
+        'timestamp': datetime.datetime(2021, 9, 6, 6, 34, 35, 385000, tzinfo=datetime.timezone.utc), 
+        'lastPrice': Decimal('3944.45'), 
+        'lastValue': 394445
+        }
+        """
+
+        LOG.info("Handle position msg")
+        for data in msg['data']:
+            parsed_data = self.parse_position(data)
+            await self.callback(POSITIONS, feed=self.id, **parsed_data)
+
+    async def _balance(self, msg: dict, timestamp: float):
+        """
+        {
+        feed': 'BITMEX', 
+        'account': 917702, 
+        'currency': 'XBt', 
+        'riskLimit': 1000000000000, 
+        'prevState': '', 
+        'state': '', 
+        'action': '', 
+        'amount': 954832, 
+        'pendingCredit': 0, 
+        'pendingDebit': 0, 
+        'confirmedDebit': 0, 
+        'prevRealisedPnl': 0, 
+        'prevUnrealisedPnl': 0, 
+        'grossComm': 720, 
+        'grossOpenCost': 2806759, 
+        'grossOpenPremium': 0, 
+        'grossExecCost': 0, 
+        'grossMarkValue': 390502, 
+        'riskValue': 3197261, 
+        'taxableMargin': 0, 
+        'initMargin': 30889, 
+        'maintMargin': 12033, 
+        'sessionMargin': 0, 
+        'targetExcessMargin': 0, 
+        'varMargin': 0, 
+        'realisedPnl': -720, 
+        'unrealisedPnl': 8012, 
+        'indicativeTax': 0, 
+        'unrealisedProfit': 0, 
+        'syntheticMargin': None, 
+        'walletBalance': 954112, 
+        'marginBalance': 962124, 
+        'marginBalancePcnt': 1, 
+        'marginLeverage': Decimal('0.40587491840968526'), 
+        'marginUsedPcnt': Decimal('0.0446'), 
+        'excessMargin': 919202, 
+        'excessMarginPcnt': 1, 
+        'availableMargin': 919202, 
+        'withdrawableMargin': 919202, 
+        'timestamp': datetime.datetime(2021, 9, 6, 3, 43, 45, 387000, tzinfo=datetime.timezone.utc), 
+        'grossLastValue': 390502, 
+        'commission': None
+        }
+        """
+
+        LOG.info("Handle margin msg")
+        for data in msg['data']:
+            parsed_data = self.parse_margin(data)
+            await self.callback(BALANCES, feed=self.id, **parsed_data)
+
     async def message_handler(self, msg: str, conn, timestamp: float):
         msg = json.loads(msg, parse_float=Decimal)
         if 'table' in msg:
@@ -598,6 +806,10 @@ class Bitmex(Feed, BitmexRestMixin):
                 await self._liquidation(msg, timestamp)
             elif msg['table'] == 'order':
                 await self._order(msg, timestamp)
+            elif msg['table'] == 'position':
+                await self._position(msg, timestamp)
+            elif msg['table'] == 'margin':
+                await self._balance(msg, timestamp)
             else:
                 LOG.warning("%s: Unhandled table=%r in %r", conn.uuid, msg['table'], msg)
         elif 'info' in msg:
@@ -620,8 +832,12 @@ class Bitmex(Feed, BitmexRestMixin):
         await self._authenticate(conn)
         chans = []
         for chan in self.subscription:
-            for pair in self.subscription[chan]:
-                chans.append(f"{chan}:{pair}")
+            print(chan)
+            if chan in Bitmex.channels_without_symbol:
+                chans.append(f"{chan}")
+            else:
+                for pair in self.subscription[chan]:
+                    chans.append(f"{chan}:{pair}")   
 
         for i in range(0, len(chans), 10):
             await conn.write(json.dumps({"op": "subscribe",
