@@ -6,11 +6,14 @@ associated with this software.
 '''
 import aioredis
 from yapic import json
+import logging
 
 from cryptofeed.backends.backend import (BackendQueue, BackendBookCallback, BackendCandlesCallback, BackendBookDeltaCallback, BackendFundingCallback,
                                          BackendOpenInterestCallback, BackendTickerCallback, BackendTradeCallback,
-                                         BackendLiquidationsCallback)
+                                         BackendLiquidationsCallback, BackendPositionsCallback, BackendBalancesCallback,
+                                         BackendOrderInfoCallback)
 
+LOG = logging.getLogger('feedhandler')
 
 def trades_none_to_str(data):
     if data['order_type'] is None:
@@ -72,7 +75,6 @@ class RedisStreamCallback(RedisCallback):
 
     async def writer(self):
         while True:
-
             count = self.queue.qsize()
             if count > 1:
                 async with self.read_many_queue(count) as updates:
@@ -169,3 +171,88 @@ class CandlesRedis(RedisZSetCallback, BackendCandlesCallback):
 
 class CandlesStream(RedisStreamCallback, BackendCandlesCallback):
     default_key = 'candles'
+
+class PositionsRedis(RedisZSetCallback, BackendPositionsCallback):
+    default_key = 'positions'
+    async def write(self, feed: str, symbol: str, timestamp: float, receipt_timestamp: float, data: dict):
+        score = data[self.score_key]
+        data = json.dumps(data)
+        await self.queue.put({'feed': feed, 'symbol': symbol, 'score': score, 'data': data})
+
+    async def writer(self):
+        while True:
+
+            count = self.queue.qsize()
+            if count > 1:
+                async with self.read_many_queue(count) as updates:
+                    async with self.redis.pipeline(transaction=False) as pipe:
+                        for update in updates:
+                            pipe = pipe.zadd(f"{self.key}-{update['feed']}-{update['symbol']}", {update['data']: update['score']}, nx=True)
+                        await pipe.execute()
+            else:
+                async with self.read_queue() as update:
+                    await self.redis.zadd(f"{self.key}-{update['feed']}-{update['symbol']}", {update['data']: update['score']}, nx=True)
+
+class PositionsStream(RedisZSetCallback, BackendPositionsCallback):
+    default_key = 'positions'
+    async def write(self, feed: str, symbol: str, timestamp: float, receipt_timestamp: float, data: dict):
+        await self.queue.put({'feed': feed, 'symbol': symbol, 'data': data})
+
+    async def writer(self):
+        while True:
+            count = self.queue.qsize()
+            if count > 1:
+                async with self.read_many_queue(count) as updates:
+                    async with self.redis.pipeline(transaction=False) as pipe:
+                        for update in updates:
+                            pipe = pipe.xadd(f"{self.key}-{update['feed']}-{update['symbol']}", update['data'])
+                        await pipe.execute()
+            else:
+                async with self.read_queue() as update:
+                    await self.redis.xadd(f"{self.key}-{update['feed']}-{update['symbol']}", update['data'])
+
+
+class BalancesRedis(RedisZSetCallback, BackendBalancesCallback):
+    default_key = 'balances'
+    async def write(self, feed: str, symbol: str, timestamp: float, receipt_timestamp: float, data: dict):
+        score = data[self.score_key]
+        data = json.dumps(data)
+        await self.queue.put({'feed': feed, 'symbol': symbol, 'score': score, 'data': data})
+
+    async def writer(self):
+        while True:
+            count = self.queue.qsize()
+            if count > 1:
+                async with self.read_many_queue(count) as updates:
+                    async with self.redis.pipeline(transaction=False) as pipe:
+                        for update in updates:
+                            pipe = pipe.zadd(f"{self.key}-{update['feed']}-{update['symbol']}", {update['data']: update['score']}, nx=True)
+                        await pipe.execute()
+            else:
+                async with self.read_queue() as update:
+                    await self.redis.zadd(f"{self.key}-{update['feed']}-{update['symbol']}", {update['data']: update['score']}, nx=True)
+
+
+class BalancesStream(RedisZSetCallback, BackendBalancesCallback):
+    default_key = 'balances'
+    async def write(self, feed: str, symbol: str, timestamp: float, receipt_timestamp: float, data: dict):
+        await self.queue.put({'feed': feed, 'symbol': symbol, 'data': data})
+
+    async def writer(self):
+        while True:
+            count = self.queue.qsize()
+            if count > 1:
+                async with self.read_many_queue(count) as updates:
+                    async with self.redis.pipeline(transaction=False) as pipe:
+                        for update in updates:
+                            pipe = pipe.xadd(f"{self.key}-{update['feed']}-{update['symbol']}", update['data'])
+                        await pipe.execute()
+            else:
+                async with self.read_queue() as update:
+                    await self.redis.xadd(f"{self.key}-{update['feed']}-{update['symbol']}", update['data'])
+
+class OrderInfoRedis(RedisZSetCallback, BackendOrderInfoCallback):
+    default_key = 'order_info'
+
+class OrderInfoStream(RedisZSetCallback, BackendOrderInfoCallback):
+    default_key = 'order_info'

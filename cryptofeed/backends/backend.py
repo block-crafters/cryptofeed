@@ -112,3 +112,26 @@ class BackendCandlesCallback:
                 'volume': self.numeric_type(volume), 'closed': str(closed)
                 }
         await self.write(feed, symbol, timestamp, receipt_timestamp, data)
+
+
+class BackendOrderInfoCallback:
+    async def __call__(self, *, feed: str, account:Decimal, symbol: str, order_id: str, timestamp: float, side: str, status: str, 
+                                amount: Decimal, filled: Decimal, remaining: Decimal, price: Decimal, clientOrderId: str, postOnly: bool, 
+                                orderType: str, timeInForce: str, lastTradeTimestamp: float, receipt_timestamp=None):
+        data = {'feed': feed, 'account': account, 'symbol': symbol, 'order_id': order_id, 'timestamp': timestamp, 'side': side, 'status': status, 'amount': amount, 'filled': filled, 'remaining': remaining, 
+                'price': price, 'clientOrderId': clientOrderId, 'postOnly': postOnly, 'orderType': orderType, 'timeInForce': timeInForce, 'lastTradeTimestamp': lastTradeTimestamp}
+        await self.write(feed, symbol, timestamp, receipt_timestamp, data)
+
+
+class BackendPositionsCallback:
+    async def __call__(self, *, feed: str, account: Decimal, timestamp: float, symbol: str, initialMargin=None, maintenanceMargin: Decimal, entryPrice=None, homeNotional: Decimal, 
+                                foreignNotional: Decimal, leverage=None, unrealizedPnl: Decimal, contracts: Decimal, liquidationPrice=None, markPrice: Decimal, receipt_timestamp=None):
+        data = {'feed': feed, 'timestamp': timestamp, 'account': account,'symbol': symbol, 'initialMargin': initialMargin, 'maintenanceMargin': maintenanceMargin, 'entryPrice': entryPrice, 'homeNotional': homeNotional, 
+                                'foreignNotional': foreignNotional, 'leverage': leverage, 'unrealizedPnl': unrealizedPnl, 'contracts': contracts, 'liquidationPrice': liquidationPrice, 'markPrice': markPrice}
+        await self.write(feed, symbol, timestamp, receipt_timestamp, data)
+
+
+class BackendBalancesCallback:
+    async def __call__(self, *, feed: str, account: Decimal, timestamp: float, free: Decimal, total: Decimal, currency: str, symbol=None, receipt_timestamp=None):
+        data = {'feed': feed, 'account': account, 'timestamp': timestamp, 'free': free, 'total': total, 'currency': currency}
+        await self.write(feed, symbol, timestamp, receipt_timestamp, data)
