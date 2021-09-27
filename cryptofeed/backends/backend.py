@@ -64,7 +64,6 @@ class BackendTradeCallback:
     async def __call__(self, *, feed: str, symbol: str, side: str, amount: Decimal, price: Decimal, order_id: str = None, timestamp: float, receipt_timestamp: float, order_type: str = None):
         data = {'feed': feed, 'symbol': symbol, 'timestamp': timestamp, 'receipt_timestamp': receipt_timestamp,
                 'side': side, 'amount': self.numeric_type(amount), 'price': self.numeric_type(price), 'order_type': order_type, 'id': order_id}
-        print(data)
         await self.write(feed, symbol, timestamp, receipt_timestamp, data)
 
 
@@ -126,8 +125,7 @@ class BackendOrderInfoCallback:
 
 class BackendPositionsCallback:
     async def __call__(self, *, feed: str, account: str, timestamp: float, symbol: str, initialMargin=None, maintenanceMargin=None, entryPrice=None, notional=None, homeNotional=None, 
-                                foreignNotional=None, leverage=None, unrealizedPnl=None, contracts=None, liquidationPrice=None, markPrice=None, receipt_timestamp=None):
-        
+                                foreignNotional=None, leverage=None, unrealizedPnl=None, contracts=None, liquidationPrice=None, markPrice=None, receipt_timestamp=None):    
         data = {'feed': feed, 'timestamp': timestamp, 'account': account,'symbol': symbol, 'initialMargin': initialMargin, 'maintenanceMargin': maintenanceMargin, 'entryPrice': entryPrice, 'notional': notional, 'leverage': leverage, 'unrealizedPnl': unrealizedPnl, 'contracts': contracts, 'liquidationPrice': liquidationPrice, 'markPrice': markPrice}
         if feed == BITMEX:
             data['homeNotional'] = homeNotional
