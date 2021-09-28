@@ -115,7 +115,7 @@ class Bitmex(Feed, BitmexRestMixin):
             'timestamp': timestamp
         }
         if data.get('account') is not None:
-            position['account'] = Decimal(data['account'])
+            position['account'] = data['account']
         if data.get('symbol') is not None:
             position['symbol'] = self.exchange_symbol_to_std_symbol(data['symbol'])
         if data.get('initMargin') is not None:
