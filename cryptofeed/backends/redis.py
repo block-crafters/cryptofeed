@@ -139,6 +139,8 @@ class TradeLatestRedis(RedisHashCallback, BackendTradeCallback):
     async def write(self, feed: str, symbol: str, timestamp: float, receipt_timestamp: float, data: dict):
         key = f"{self.key}:{feed}:{symbol}"
         await super().write(feed, symbol, timestamp, receipt_timestamp, data, key)
+
+        
 class FundingRedis(RedisZSetCallback, BackendFundingCallback):
     default_key = 'funding'
     async def write(self, feed: str, symbol: str, timestamp: float, receipt_timestamp: float, data: dict):
@@ -260,6 +262,7 @@ class CandlesStream(RedisStreamCallback, BackendCandlesCallback):
         key = f"{self.key}:{feed}:{symbol}"
         await super().write(feed, symbol, timestamp, receipt_timestamp, data, key)
 
+
 class PositionsLatestRedis(RedisHashCallback, BackendPositionsCallback):
     default_key = 'positions_latest'
     async def write(self, feed: str, symbol: str, timestamp: float, receipt_timestamp: float, data: dict):
@@ -297,7 +300,7 @@ class BalancesStream(RedisStreamCallback, BackendBalancesCallback):
 
 
 class OrderInfoLatestRedis(RedisHashCallback, BackendOrderInfoCallback):
-    default_key = 'order_info_latest'
+    default_key = 'order_info'
     async def write(self, feed: str, symbol: str, timestamp: float, receipt_timestamp: float, data: dict):
         order_id = data['order_id']
         account = data['account']
