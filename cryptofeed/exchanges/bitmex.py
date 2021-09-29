@@ -77,6 +77,8 @@ class Bitmex(Feed, BitmexRestMixin):
             order['status'] = Bitmex.parse_order_status(data['ordStatus'])
 
         # 0 should be True at `if` statement.
+        if data.get('account') is not None:
+            order['account'] = Decimal(data['account'])
         if data.get('orderQty') is not None:
             order['amount'] = Decimal(data['orderQty'])
         if data.get('cumQty') is not None:
@@ -112,6 +114,8 @@ class Bitmex(Feed, BitmexRestMixin):
         position = {
             'timestamp': timestamp
         }
+        if data.get('account') is not None:
+            position['account'] = data['account']
         if data.get('symbol') is not None:
             position['symbol'] = self.exchange_symbol_to_std_symbol(data['symbol'])
         if data.get('initMargin') is not None:
@@ -141,6 +145,8 @@ class Bitmex(Feed, BitmexRestMixin):
         balance = {
             'timestamp': timestamp
         }
+        if data.get('account') is not None:
+            balance['account'] = Decimal(data['account'])
         if data.get('availableMargin') is not None:
             balance['free'] = Decimal(data['availableMargin'])
         if data.get('marginBalance') is not None:
@@ -232,7 +238,6 @@ class Bitmex(Feed, BitmexRestMixin):
         # if we reset the book, force a full update
         forced = False
         pair = self.exchange_symbol_to_std_symbol(msg['data'][0]['symbol'])
-
         if not self.partial_received[pair]:
             # per bitmex documentation messages received before partial
             # should be discarded
@@ -832,7 +837,6 @@ class Bitmex(Feed, BitmexRestMixin):
         await self._authenticate(conn)
         chans = []
         for chan in self.subscription:
-            print(chan)
             if chan in Bitmex.channels_without_symbol:
                 chans.append(f"{chan}")
             else:

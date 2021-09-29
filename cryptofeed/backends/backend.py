@@ -10,7 +10,7 @@ from contextlib import asynccontextmanager
 from decimal import Decimal
 
 from cryptofeed.backends._util import book_convert, book_delta_convert
-from cryptofeed.defines import BID, ASK
+from cryptofeed.defines import BID, ASK, BITMEX
 
 
 class BackendQueue:
@@ -111,4 +111,29 @@ class BackendCandlesCallback:
                 'close_price': self.numeric_type(close_price), 'high_price': self.numeric_type(high_price), 'low_price': self.numeric_type(low_price),
                 'volume': self.numeric_type(volume), 'closed': str(closed)
                 }
+        await self.write(feed, symbol, timestamp, receipt_timestamp, data)
+
+
+class BackendOrderInfoCallback:
+    async def __call__(self, *, feed: str, account: str, symbol: str, order_id: str, timestamp: float, side: str, status: str, 
+                                amount: Decimal, filled: Decimal, remaining: Decimal, price: Decimal, clientOrderId: str, postOnly: bool, 
+                                orderType: str, timeInForce: str, lastTradeTimestamp: float, receipt_timestamp=None):
+        data = {'feed': feed, 'account': account, 'symbol': symbol, 'order_id': order_id, 'timestamp': timestamp, 'side': side, 'status': status, 'amount': amount, 'filled': filled, 'remaining': remaining, 
+                'price': price, 'clientOrderId': clientOrderId, 'postOnly': postOnly, 'orderType': orderType, 'timeInForce': timeInForce, 'lastTradeTimestamp': lastTradeTimestamp}
+        await self.write(feed, symbol, timestamp, receipt_timestamp, data)
+
+
+class BackendPositionsCallback:
+    async def __call__(self, *, feed: str, account: str, timestamp: float, symbol: str, initialMargin=None, maintenanceMargin=None, entryPrice=None, notional=None, homeNotional=None, 
+                                foreignNotional=None, leverage=None, unrealizedPnl=None, contracts=None, liquidationPrice=None, markPrice=None, receipt_timestamp=None):    
+        data = {'feed': feed, 'timestamp': timestamp, 'account': account,'symbol': symbol, 'initialMargin': initialMargin, 'maintenanceMargin': maintenanceMargin, 'entryPrice': entryPrice, 'notional': notional, 'leverage': leverage, 'unrealizedPnl': unrealizedPnl, 'contracts': contracts, 'liquidationPrice': liquidationPrice, 'markPrice': markPrice}
+        if feed == BITMEX:
+            data['homeNotional'] = homeNotional
+            data['foreignNotional'] = foreignNotional
+        await self.write(feed, symbol, timestamp, receipt_timestamp, data)
+
+
+class BackendBalancesCallback:
+    async def __call__(self, *, feed: str, account: str, timestamp: float, free: Decimal, total: Decimal, currency: str, symbol=None, receipt_timestamp=None):
+        data = {'feed': feed, 'account': account, 'timestamp': timestamp, 'free': free, 'total': total, 'currency': currency}
         await self.write(feed, symbol, timestamp, receipt_timestamp, data)
