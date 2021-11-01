@@ -134,6 +134,6 @@ class BackendPositionsCallback:
 
 
 class BackendBalancesCallback:
-    async def __call__(self, *, feed: str, account: str, timestamp: float, free: Decimal, total: Decimal, currency: str, symbol=None, receipt_timestamp=None):
+    async def __call__(self, *, feed: str, account: str, timestamp: float, free: Decimal, currency: str, total: Decimal=None, symbol=None, receipt_timestamp=None):
         data = {'feed': feed, 'account': account, 'timestamp': timestamp, 'free': free, 'total': total, 'currency': currency}
         await self.write(feed, symbol, timestamp, receipt_timestamp, data)
