@@ -115,9 +115,10 @@ class BackendCandlesCallback:
 
 
 class BackendOrderInfoCallback:
-    async def __call__(self, *, feed: str, account: str, symbol: str, order_id: str, timestamp: float, side: str, status: str, 
-                                amount: Decimal, filled: Decimal, remaining: Decimal, price: Decimal, clientOrderId: str, postOnly: bool, 
-                                orderType: str, timeInForce: str, lastTradeTimestamp: float, receipt_timestamp=None):
+    async def __call__(self, *, feed: str, account: str, symbol: str, order_id: str, timestamp: float, status: str,
+                                remaining: Decimal, clientOrderId: str, side: str=None, 
+                                amount: Decimal=None, filled: Decimal=None, price: Decimal=None, postOnly: bool=None, 
+                                orderType: str=None, timeInForce: str=None, lastTradeTimestamp: float=None, receipt_timestamp=None):
         data = {'feed': feed, 'account': account, 'symbol': symbol, 'order_id': order_id, 'timestamp': timestamp, 'side': side, 'status': status, 'amount': amount, 'filled': filled, 'remaining': remaining, 
                 'price': price, 'clientOrderId': clientOrderId, 'postOnly': postOnly, 'orderType': orderType, 'timeInForce': timeInForce, 'lastTradeTimestamp': lastTradeTimestamp}
         await self.write(feed, symbol, timestamp, receipt_timestamp, data)
