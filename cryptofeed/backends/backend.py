@@ -113,28 +113,22 @@ class BackendCandlesCallback:
                 }
         await self.write(feed, symbol, timestamp, receipt_timestamp, data)
 
-
 class BackendOrderInfoCallback:
-    async def __call__(self, *, feed: str, account: str, symbol: str, order_id: str, timestamp: float, status: str,
-                                remaining: Decimal, clientOrderId: str, side: str=None, 
-                                amount: Decimal=None, filled: Decimal=None, price: Decimal=None, postOnly: bool=None, 
-                                orderType: str=None, timeInForce: str=None, lastTradeTimestamp: float=None, receipt_timestamp=None):
-        data = {'feed': feed, 'account': account, 'symbol': symbol, 'order_id': order_id, 'timestamp': timestamp, 'side': side, 'status': status, 'amount': amount, 'filled': filled, 'remaining': remaining, 
-                'price': price, 'clientOrderId': clientOrderId, 'postOnly': postOnly, 'orderType': orderType, 'timeInForce': timeInForce, 'lastTradeTimestamp': lastTradeTimestamp}
+    async def __call__(self,feed: str, **data):
+        symbol = data.get('symbol')
+        timestamp = data.get('timestamp')
+        receipt_timestamp = data.get('receipt_timestamp')
         await self.write(feed, symbol, timestamp, receipt_timestamp, data)
-
-
 class BackendPositionsCallback:
-    async def __call__(self, *, feed: str, account: str, timestamp: float, symbol: str, initialMargin=None, maintenanceMargin=None, entryPrice=None, notional=None, homeNotional=None, 
-                                foreignNotional=None, leverage=None, unrealizedPnl=None, contracts=None, liquidationPrice=None, markPrice=None, receipt_timestamp=None):    
-        data = {'feed': feed, 'timestamp': timestamp, 'account': account,'symbol': symbol, 'initialMargin': initialMargin, 'maintenanceMargin': maintenanceMargin, 'entryPrice': entryPrice, 'notional': notional, 'leverage': leverage, 'unrealizedPnl': unrealizedPnl, 'contracts': contracts, 'liquidationPrice': liquidationPrice, 'markPrice': markPrice}
-        if feed == BITMEX:
-            data['homeNotional'] = homeNotional
-            data['foreignNotional'] = foreignNotional
+    async def __call__(self,feed: str, **data):
+        symbol = data.get('symbol')
+        timestamp = data.get('timestamp')
+        receipt_timestamp = data.get('receipt_timestamp')
         await self.write(feed, symbol, timestamp, receipt_timestamp, data)
-
 
 class BackendBalancesCallback:
-    async def __call__(self, *, feed: str, account: str, timestamp: float, free: Decimal, currency: str, total: Decimal=None, symbol=None, receipt_timestamp=None):
-        data = {'feed': feed, 'account': account, 'timestamp': timestamp, 'free': free, 'total': total, 'currency': currency}
+    async def __call__(self,feed: str, **data):
+        symbol = data.get('symbol')
+        timestamp = data.get('timestamp')
+        receipt_timestamp = data.get('receipt_timestamp')
         await self.write(feed, symbol, timestamp, receipt_timestamp, data)
