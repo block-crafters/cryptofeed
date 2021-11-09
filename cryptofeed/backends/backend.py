@@ -114,21 +114,25 @@ class BackendCandlesCallback:
         await self.write(feed, symbol, timestamp, receipt_timestamp, data)
 
 class BackendOrderInfoCallback:
-    async def __call__(self,feed: str, **data):
+    async def __call__(self, feed: str, **data):
         symbol = data.get('symbol')
         timestamp = data.get('timestamp')
         receipt_timestamp = data.get('receipt_timestamp')
+        data['feed'] = feed
         await self.write(feed, symbol, timestamp, receipt_timestamp, data)
+        
 class BackendPositionsCallback:
-    async def __call__(self,feed: str, **data):
+    async def __call__(self, feed: str, **data):
         symbol = data.get('symbol')
         timestamp = data.get('timestamp')
         receipt_timestamp = data.get('receipt_timestamp')
+        data['feed'] = feed
         await self.write(feed, symbol, timestamp, receipt_timestamp, data)
 
 class BackendBalancesCallback:
-    async def __call__(self,feed: str, **data):
+    async def __call__(self, feed: str, **data):
         symbol = data.get('symbol')
         timestamp = data.get('timestamp')
         receipt_timestamp = data.get('receipt_timestamp')
+        data['feed'] = feed
         await self.write(feed, symbol, timestamp, receipt_timestamp, data)

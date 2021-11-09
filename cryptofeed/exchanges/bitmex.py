@@ -71,6 +71,8 @@ class Bitmex(Feed, BitmexRestMixin):
             'order_id': data['orderID'],
             'timestamp': timestamp
         }
+        if data.get('symbol') is not None:
+            order['symbol'] = self.exchange_symbol_to_std_symbol(data['symbol'])
         if data.get('side'):
             order['side'] = BUY if data['side'] == 'Buy' else SELL
         if data.get('ordStatus'):
