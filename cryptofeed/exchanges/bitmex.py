@@ -71,6 +71,8 @@ class Bitmex(Feed, BitmexRestMixin):
             'order_id': data['orderID'],
             'timestamp': timestamp
         }
+        if data.get('symbol') is not None:
+            order['symbol'] = self.exchange_symbol_to_std_symbol(data['symbol'])
         if data.get('side'):
             order['side'] = BUY if data['side'] == 'Buy' else SELL
         if data.get('ordStatus'):
@@ -638,8 +640,7 @@ class Bitmex(Feed, BitmexRestMixin):
         for data in msg['data']:
             if data.get('ordStatus'):
                 new_info = self.parse_order(data)
-                symbol = self.exchange_symbol_to_std_symbol(data['symbol'])
-                await self.callback(ORDER_INFO, feed=self.id, symbol=symbol, **new_info)
+                await self.callback(ORDER_INFO, feed=self.id, **new_info)
 
     async def _position(self, msg: dict, timestamp: float):
         """
