@@ -636,10 +636,10 @@ class Bitmex(Feed, BitmexRestMixin):
         }
         """
 
-        LOG.info("Handling order msg")
         for data in msg['data']:
             if data.get('ordStatus'):
                 new_info = self.parse_order(data)
+                LOG.info("Handling %s order msg: %s", new_info.get('symbol'), list(new_info.items())[:4])
                 await self.callback(ORDER_INFO, feed=self.id, **new_info)
 
     async def _position(self, msg: dict, timestamp: float):
@@ -737,9 +737,9 @@ class Bitmex(Feed, BitmexRestMixin):
         }
         """
 
-        LOG.info("Handle position msg")
         for data in msg['data']:
             parsed_data = self.parse_position(data)
+            LOG.info("Handle %s position msg: %s", parsed_data.get('symbol'), list(parsed_data.items())[:3])
             await self.callback(POSITIONS, feed=self.id, **parsed_data)
 
     async def _balance(self, msg: dict, timestamp: float):
@@ -790,9 +790,9 @@ class Bitmex(Feed, BitmexRestMixin):
         }
         """
 
-        LOG.info("Handle margin msg")
         for data in msg['data']:
             parsed_data = self.parse_margin(data)
+            LOG.info("Handle margin msg:                %s", list(parsed_data.items())[:3])
             await self.callback(BALANCES, feed=self.id, **parsed_data)
 
     async def message_handler(self, msg: str, conn, timestamp: float):
