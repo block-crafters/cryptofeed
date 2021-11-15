@@ -649,7 +649,7 @@ class Bitmex(Feed, BitmexRestMixin):
                     'price': new_info.get('price'),
                     'amount': new_info.get('amount')
                     }       
-                LOG.info(f"Handling {symbol} order msg: {data_to_log}")
+                LOG.info(f"Handle order msg: {data_to_log}")
                 await self.callback(ORDER_INFO, feed=self.id, **new_info)
 
     async def _position(self, msg: dict, timestamp: float):
@@ -757,7 +757,7 @@ class Bitmex(Feed, BitmexRestMixin):
                 'contracts': parsed_data.get('contracts'),
                 'liquidationPrice': parsed_data.get('liquidationPrice')
                 }
-            LOG.info(f"Handle {symbol} position msg: {data_to_log}")
+            LOG.info(f"Handle position msg: {data_to_log}")
             await self.callback(POSITIONS, feed=self.id, **parsed_data)
 
     async def _balance(self, msg: dict, timestamp: float):
