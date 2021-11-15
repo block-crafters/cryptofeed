@@ -636,10 +636,20 @@ class Bitmex(Feed, BitmexRestMixin):
         }
         """
 
-        LOG.info("Handling order msg")
         for data in msg['data']:
             if data.get('ordStatus'):
                 new_info = self.parse_order(data)
+                symbol = new_info.get('symbol')
+                data_to_log = {
+                    'feed': self.id,
+                    'timestamp': new_info.get('timestamp'),
+                    'symbol': symbol, 
+                    'order_id': new_info.get('order_id'), 
+                    'status': new_info.get('status'), 
+                    'price': new_info.get('price'),
+                    'amount': new_info.get('amount')
+                    }       
+                LOG.info(f"Handle order msg: {data_to_log}")
                 await self.callback(ORDER_INFO, feed=self.id, **new_info)
 
     async def _position(self, msg: dict, timestamp: float):
@@ -737,9 +747,17 @@ class Bitmex(Feed, BitmexRestMixin):
         }
         """
 
-        LOG.info("Handle position msg")
         for data in msg['data']:
             parsed_data = self.parse_position(data)
+            symbol = parsed_data.get('symbol')
+            data_to_log = {
+                'feed': self.id,
+                'account': parsed_data.get('account'),
+                'symbol': symbol,
+                'contracts': parsed_data.get('contracts'),
+                'liquidationPrice': parsed_data.get('liquidationPrice')
+                }
+            LOG.info(f"Handle position msg: {data_to_log}")
             await self.callback(POSITIONS, feed=self.id, **parsed_data)
 
     async def _balance(self, msg: dict, timestamp: float):
@@ -790,9 +808,15 @@ class Bitmex(Feed, BitmexRestMixin):
         }
         """
 
-        LOG.info("Handle margin msg")
         for data in msg['data']:
             parsed_data = self.parse_margin(data)
+            data_to_log = {
+                'feed': self.id,
+                'account': parsed_data.get('account'),
+                'total': parsed_data.get('total'),
+                'free': parsed_data.get('free')
+                }
+            LOG.info(f"Handle margin msg: {data_to_log}")
             await self.callback(BALANCES, feed=self.id, **parsed_data)
 
     async def message_handler(self, msg: str, conn, timestamp: float):
