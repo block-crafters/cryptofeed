@@ -10,7 +10,7 @@ import logging
 from datetime import datetime as dt, timezone
 from typing import Dict, Optional, Tuple, Union
 
-from cryptofeed.defines import CANDLES, FUNDING, L2_BOOK, L3_BOOK, OPEN_INTEREST, TICKER, TRADES, TRANSACTIONS, BALANCES, ORDER_INFO, USER_FILLS
+from cryptofeed.defines import CANDLES, FUNDING, L2_BOOK, L3_BOOK, OPEN_INTEREST, TICKER, TRADES, TRANSACTIONS, BALANCES, ORDER_INFO, USER_FILLS, BITMEX
 from cryptofeed.symbols import Symbol, Symbols
 from cryptofeed.connection import HTTPSync
 from cryptofeed.exceptions import UnsupportedDataFeed, UnsupportedSymbol, UnsupportedTradingOption
@@ -98,14 +98,25 @@ class Exchange:
             raise
 
     @classmethod
-    def std_channel_to_exchange(cls, channel: str) -> str:
+    def std_channel_to_exchange(cls, channel: str, max_depth=None) -> str:
         try:
+            # NOTE(boseok): In Bitmex API docs, It says like below.
+            # "If you wish to get real-time order book data, we recommend you use the orderBookL2_25 subscription.
+            # orderBookL2 pushes the full L2 order book, but the payload can get very large."
+            if cls.id == BITMEX:
+                if channel == L2_BOOK and max_depth is not None and max_depth <= 25:
+                    exchange_channel = 'orderBookL2_25'
+            else:
+                exchange_channel = cls.websocket_channels[channel]
             return cls.websocket_channels[channel]
         except KeyError:
             raise UnsupportedDataFeed(f'{channel} is not supported on {cls.id}')
 
     @classmethod
     def exchange_channel_to_std(cls, channel: str) -> str:
+        if cls.id == BITMEX and channel == 'orderBookL2_25':
+            return L2_BOOK
+
         for chan, exch in cls.websocket_channels.items():
             if exch == channel:
                 return chan
