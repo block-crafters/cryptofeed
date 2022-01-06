@@ -100,7 +100,7 @@ class Feed(Exchange):
 
         if subscription is not None:
             for channel in subscription:
-                chan = self.std_channel_to_exchange(channel)
+                chan = self.std_channel_to_exchange(channel, self.max_depth)
                 if self.is_authenticated_channel(channel):
                     if not self.key_id or not self.key_secret:
                         raise ValueError("Authenticated channel subscribed to, but no auth keys provided")
