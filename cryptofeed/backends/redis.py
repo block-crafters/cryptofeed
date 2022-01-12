@@ -165,6 +165,8 @@ class BookRedis(RedisHashCallback, BackendBookCallback):
 class BookLatestRedis(RedisHashCallback, BackendBookCallback):
     default_key = 'book_latest'
     async def write(self, feed: str, symbol: str, timestamp: float, receipt_timestamp: float, data: dict):
+        data['bid'] = json.dumps(data['bid'])
+        data['ask'] = json.dumps(data['ask'])
         key = f"{self.key}:{feed}:{symbol}"
         await super().write(feed, symbol, timestamp, receipt_timestamp, data, key)
 
