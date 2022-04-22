@@ -80,7 +80,7 @@ class Bitmex(Feed, BitmexRestMixin):
 
         # 0 should be True at `if` statement.
         if data.get('account') is not None:
-            order['account'] = Decimal(data['account'])
+            order['account'] = data['account']
         if data.get('orderQty') is not None:
             order['amount'] = Decimal(data['orderQty'])
         if data.get('cumQty') is not None:
@@ -148,7 +148,7 @@ class Bitmex(Feed, BitmexRestMixin):
             'timestamp': timestamp
         }
         if data.get('account') is not None:
-            balance['account'] = Decimal(data['account'])
+            balance['account'] = data['account']
         if data.get('availableMargin') is not None:
             balance['free'] = Decimal(data['availableMargin'])
         if data.get('marginBalance') is not None:
