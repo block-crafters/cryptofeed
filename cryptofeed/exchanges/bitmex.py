@@ -174,9 +174,10 @@ class Bitmex(Feed, BitmexRestMixin):
     @staticmethod
     def parse_currency(currency):
         currencies = {
-            'XBt': 'BTC'
+            'XBt': 'BTC',
+            'USDt': 'USDT'
         }
-        ret = currencies.get(currency, None)
+        ret = currencies.get(currency, currency.upper())
         return ret
 
     @staticmethod
@@ -813,6 +814,7 @@ class Bitmex(Feed, BitmexRestMixin):
             data_to_log = {
                 'feed': self.id,
                 'account': parsed_data.get('account'),
+                'currecny': parsed_data.get('currency'),
                 'total': parsed_data.get('total'),
                 'free': parsed_data.get('free')
                 }
