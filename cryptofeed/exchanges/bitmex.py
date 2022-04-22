@@ -80,7 +80,7 @@ class Bitmex(Feed, BitmexRestMixin):
 
         # 0 should be True at `if` statement.
         if data.get('account') is not None:
-            order['account'] = Decimal(data['account'])
+            order['account'] = data['account']
         if data.get('orderQty') is not None:
             order['amount'] = Decimal(data['orderQty'])
         if data.get('cumQty') is not None:
@@ -148,7 +148,7 @@ class Bitmex(Feed, BitmexRestMixin):
             'timestamp': timestamp
         }
         if data.get('account') is not None:
-            balance['account'] = Decimal(data['account'])
+            balance['account'] = data['account']
         if data.get('availableMargin') is not None:
             balance['free'] = Decimal(data['availableMargin'])
         if data.get('marginBalance') is not None:
@@ -174,9 +174,10 @@ class Bitmex(Feed, BitmexRestMixin):
     @staticmethod
     def parse_currency(currency):
         currencies = {
-            'XBt': 'BTC'
+            'XBt': 'BTC',
+            'USDt': 'USDT'
         }
-        ret = currencies.get(currency, None)
+        ret = currencies.get(currency, currency.upper())
         return ret
 
     @staticmethod
@@ -813,6 +814,7 @@ class Bitmex(Feed, BitmexRestMixin):
             data_to_log = {
                 'feed': self.id,
                 'account': parsed_data.get('account'),
+                'currecny': parsed_data.get('currency'),
                 'total': parsed_data.get('total'),
                 'free': parsed_data.get('free')
                 }

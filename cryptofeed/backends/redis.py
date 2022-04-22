@@ -282,20 +282,58 @@ class PositionsStream(RedisStreamCallback, BackendPositionsCallback):
 
 
 class BalancesLatestRedis(RedisHashCallback, BackendBalancesCallback):
+    """
+    Reference:
+        Format:
+            key: balances_stream:BITMEX:<ID>:BTC
+                1) "timestamp"
+                2) "1650615195.849"
+                3) "account"
+                4) "12345"
+                5) "free"
+                6) "9489102"
+                7) "total"
+                8) "11256525"
+                9) "currency"
+                10) "BTC"
+                11) "feed"
+                12) "BITMEX"
+    """
     default_key = 'balances_latest'
     async def write(self, feed: str, symbol: str, timestamp: float, receipt_timestamp: float, data: dict):
         account = data['account']
-        key = f"{self.key}:{feed}:{account}"
+        currency = data['currency']
+        key = f"{self.key}:{feed}:{account}:{currency}"
         if symbol is not None:
             key += f":{symbol}"
         await super().write(feed, symbol, timestamp, receipt_timestamp, data, key)
 
 
 class BalancesStream(RedisStreamCallback, BackendBalancesCallback):
+    """
+    Reference:
+        Format:
+            key: balances_stream:BITMEX:<ID>:BTC
+            item:
+                "1650615196099-0"
+                    1) "timestamp"
+                    2) "1650615195.849"
+                    3) "account"
+                    4) "12345"
+                    5) "free"
+                    6) "9489102"
+                    7) "total"
+                    8) "11256525"
+                    9) "currency"
+                    10) "BTC"
+                    11) "feed"
+                    12) "BITMEX"
+    """
     default_key = 'balances_stream'
     async def write(self, feed: str, symbol: str, timestamp: float, receipt_timestamp: float, data: dict):
         account = data['account']
-        key = f"{self.key}:{feed}:{account}"
+        currency = data['currency']
+        key = f"{self.key}:{feed}:{account}:{currency}"
         if symbol is not None:
             key += f":{symbol}"
         await super().write(feed, symbol, timestamp, receipt_timestamp, data, key)
