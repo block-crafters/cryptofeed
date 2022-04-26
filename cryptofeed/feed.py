@@ -8,7 +8,7 @@ from collections import defaultdict
 from cryptofeed.exchange import Exchange
 from functools import partial
 import logging
-from typing import Tuple, Callable, Union, List
+from typing import Optional, Tuple, Callable, Union, List
 
 from aiohttp.typedefs import StrOrURL
 
@@ -25,7 +25,14 @@ LOG = logging.getLogger('feedhandler')
 
 
 class Feed(Exchange):
-    def __init__(self, address: Union[dict, str], timeout=120, timeout_interval=30, retries=10, symbols=None, channels=None, subscription=None, callbacks=None, max_depth=None, book_interval=1000, snapshot_interval=False, checksum_validation=False, cross_check=False, origin=None, exceptions=None, log_message_on_error=False, delay_start=0, http_proxy: StrOrURL = None, **kwargs):
+    def __init__(
+        self, 
+        address: Union[dict, str], timeout=120, timeout_interval=30, retries=10, 
+        symbols=None, channels=None, subscription=None, callbacks=None, max_depth=None, 
+        book_interval=1000, snapshot_interval=False, checksum_validation=False, cross_check=False, 
+        origin=None, exceptions=None, log_message_on_error=False, delay_start=0, http_proxy: StrOrURL = None, 
+        custom_account_id: Optional[Union[int, str]] = None,
+        **kwargs):
         """
         address: str, or dict
             address to be used to create the connection.
@@ -94,6 +101,7 @@ class Feed(Exchange):
         self.http_conn = HTTPAsyncConn(self.id, http_proxy)
         self.http_proxy = http_proxy
         self.start_delay = delay_start
+        self.custom_account_id = custom_account_id
 
         if subscription is not None and (symbols is not None or channels is not None):
             raise ValueError("Use subscription, or channels and symbols, not both")
