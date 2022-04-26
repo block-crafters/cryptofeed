@@ -9,7 +9,7 @@ from cryptofeed.symbols import Symbol
 import logging
 from decimal import Decimal
 from functools import partial
-from typing import Dict, List, Callable, Tuple, Union
+from typing import Any, Dict, List, Callable, Optional, Tuple, Union
 from datetime import datetime as dt
 
 from sortedcontainers import SortedDict as sd
@@ -102,8 +102,10 @@ class Bybit(Feed):
             await self._book(msg, timestamp)
         elif "instrument_info" in msg["topic"]:
             await self._instrument_info(msg, timestamp)
-        elif "order" in msg["topic"]:
+        elif "order" == msg["topic"]:
             await self._order(msg, timestamp)
+        elif "position" == msg["position"]:
+            await self._position(msg, timestamp)
         elif "execution" in msg["topic"]:
             await self._execution(msg, timestamp)
         else:
@@ -342,10 +344,104 @@ class Bybit(Feed):
             ts = int(ts)
         await self.book_callback(self._l2_book[pair], L2_BOOK, pair, forced, delta, ts / 1000000, timestamp)
 
+    @staticmethod
+    def parse_time_in_force(time_in_force: str) -> Optional[str]:
+        return {
+            'GoodTillCancel': 'GTC',
+            'ImmediateOrCancel': 'IOC',
+            'FillOrKill': 'FOK',
+            'PostOnly': 'PO',
+        }.get(time_in_force)
+
+    @staticmethod
+    def parse_order_status(status: str) -> Optional[str]:
+        return {
+            'Created': 'open',
+            'Rejected': 'rejected',
+            'New': 'open',
+            'PartiallyFilled': 'open',
+            'Filled': 'closed',
+            'Cancelled': 'canceled',
+            'PendingCancel': 'open',
+        }.get(status)
+
+    def parse_order(self, data: dict[str, Any]) -> dict[str, Any]:
+        timestamp = self.timestamp_normalize(data['timestamp'])
+        order = {
+            'order_id': data['order_id'],
+            'timestamp': timestamp,
+            'account': self.custom_account_id,
+        }
+        if data.get('symbol') is not None:
+            order['symbol'] = self.exchange_symbol_to_std_symbol(data['symbol'])
+        if data.get('side') is not None:
+            order['side'] = SELL if data['side'] == "Sell" else BUY
+        if data.get('order_status') is not None:
+            order['status'] = self.parse_order_status(data['order_status'])
+            order['postOnly'] = (order['status'] == 'PO')
+        if data.get('time_in_force') is not None:
+            order['timeInForce'] = self.parse_time_in_force(data['time_in_force'])
+        if data.get('order_link_id') is not None:
+            order['clientOrderId'] = data['order_link_id']
+        if data.get('price') is not None:
+            order['price'] = Decimal(data['price'])
+            # Bitmex is using order['avgPrice'] but seems latest CCXT uses 'average' key instead?
+        if data.get('qty') is not None:
+            order['amount'] = Decimal(data['qty'])
+            if data.get('leaves_qty') is not None:
+                order['filled'] = order['amount'] - data['leaves_qty']
+                order['remaining'] = data['leaves_qty']
+        if data.get('order_type') is not None:
+            order['orderType'] = data['order_type']
+        if data.get('timestamp') is not None:
+            order['lastTradeTimestamp'] = self.timestamp_normalize(data['timestamp'])
+
+        return order
+
     async def _order(self, msg: dict, timestamp: float):
+        """
+        {
+            "topic": "order",
+            "data": [
+                {
+                    "order_id": "xxxxxxxx-xxxx-xxxx-9a8f-4a973eb5c418", # (O)
+                    "order_link_id": "",                                # (O)
+                    "symbol": "BTCUSD",                                 # (O)
+                    "side": "Sell",                                     # (O)
+                    "order_type": "Market",
+                    "price": "8579.5",                                  # (O)
+                    "qty": 1,                                           # (O)
+                    "time_in_force": "ImmediateOrCancel",               # (O)
+                    "create_type": "CreateByClosing",
+                    "cancel_type": "",
+                    "order_status": "Filled",                           # (O)
+                    "leaves_qty": 0,                                    # (O)
+                    "cum_exec_qty": 1,
+                    "cum_exec_value": "0.00011655",
+                    "cum_exec_fee": "0.00000009",
+                    "timestamp": "2020-01-14T14:09:31.778Z",
+                    "take_profit": "0",
+                    "stop_loss": "0",
+                    "trailing_stop": "0",
+                    "trailing_active": "0",
+                    "last_exec_price": "8580",
+                    "reduce_only": false,
+                    "close_on_trigger": false
+                }
+            ]
+        }
+        """
         for i in range(len(msg['data'])):
-            data = msg['data'][i]
-            symbol = self.exchange_symbol_to_std_symbol(data['symbol'])
+            data = self.parse_order(msg['data'][i])
+            symbol = data['symbol']
+            data_to_log = {
+                'feed': self.id,
+                'timestamp': data.get('timestamp'),
+                'symbol': data.get('symbol'),
+                'order_id': data.get('order_id'),
+                'create_type': data.get('create_type'),
+            }
+            LOG.debug(f"Handle order msg: {data_to_log}")
             await self.callback(ORDER_INFO, feed=self.id, symbol=symbol, data=data, receipt_timestamp=timestamp)
 
     async def _execution(self, msg: dict, timestamp: float):
