@@ -16,7 +16,10 @@ from sortedcontainers import SortedDict as sd
 from yapic import json
 
 from cryptofeed.connection import AsyncConnection, WSAsyncConn
-from cryptofeed.defines import BID, ASK, BUY, BYBIT, FUNDING, L2_BOOK, SELL, TRADES, OPEN_INTEREST, FUTURES_INDEX, ORDER_INFO, USER_FILLS, FUTURES, PERPETUAL
+from cryptofeed.defines import (
+    BALANCES, BID, ASK, BUY, BYBIT, FUNDING, L2_BOOK, SELL, TRADES, 
+    OPEN_INTEREST, FUTURES_INDEX, ORDER_INFO, USER_FILLS, FUTURES, PERPETUAL
+)
 from cryptofeed.feed import Feed
 # For auth
 import hmac
@@ -104,6 +107,8 @@ class Bybit(Feed):
             await self._instrument_info(msg, timestamp)
         elif "order" == msg["topic"]:
             await self._order(msg, timestamp)
+        elif "wallet" == msg["topic"]:
+            await self._balance(msg, timestamp)
         elif "position" == msg["position"]:
             await self._position(msg, timestamp)
         elif "execution" in msg["topic"]:
@@ -443,6 +448,47 @@ class Bybit(Feed):
             }
             LOG.debug(f"Handle order msg: {data_to_log}")
             await self.callback(ORDER_INFO, feed=self.id, symbol=symbol, data=data, receipt_timestamp=timestamp)
+
+    def parse_balance(self, data: dict[str, Any]) -> dict[str, Any]:
+        balance: dict[str, Any] = {
+            'timestamp': self.timestamp_normalize(data['timestamp'])
+        }
+        if data.get('user_id') is not None:
+            balance['account'] = self.custom_account_id or data['user_id']
+        if data.get('coin') is not None:
+            balance['currency'] = data['coin']
+        if data.get('wallet_balance') is not None:
+            balance['total'] = Decimal(data['wallet_balance'])
+        if data.get('available_balance') is not None:
+            balance['free'] = Decimal(data['available_balance'])
+
+        return balance
+
+    async def _balance(self, msg: dict, timestamp: float):
+        """
+        {
+            "topic": "wallet",
+            "data": [
+                {
+                    "user_id": 738713,
+                    "coin": "BTC",
+                    "available_balance": "1.50121026",
+                    "wallet_balance": "1.50121261"
+                }
+            ]
+        }
+        """
+        for i in range(len(msg["data"])):
+            data = self.parse_balance(msg["data"][i])
+            data_to_log = {
+                'feed': self.id,
+                'timestamp': data.get('timestamp'),
+                'currency': data.get('symbol'),
+                'total': data.get('total'),
+                'free': data.get('free'),
+            }
+            LOG.debug(f"Handle margin msg: {data_to_log}")
+            await self.callback(BALANCES, feed=self.id, **data)
 
     async def _execution(self, msg: dict, timestamp: float):
         for i in range(len(msg['data'])):
