@@ -38,8 +38,16 @@ class Bybit(Feed):
         ORDER_INFO: 'order',
         FUTURES_INDEX: 'instrument_info.100ms',
         OPEN_INTEREST: 'instrument_info.100ms',
-        FUNDING: 'instrument_info.100ms'
+        FUNDING: 'instrument_info.100ms',
+        ORDER_INFO: 'order',
+        POSITIONS: 'position',
+        BALANCES: 'wallet'
     }
+    channels_without_symbol = [
+        websocket_channels[POSITIONS],
+        websocket_channels[ORDER_INFO],
+        websocket_channels[BALANCES],
+    ]
 
     @classmethod
     def timestamp_normalize(cls, ts: Union[int, dt]) -> float:
@@ -151,7 +159,9 @@ class Bybit(Feed):
 
         self.__reset(quote=quote)
 
+        chans: list[str] = []
         for chan in self.subscription:
+
             if not self.is_authenticated_channel(self.exchange_channel_to_std(chan)):
                 for pair in self.subscription[chan]:
                     # Bybit uses separate addresses for difference quote currencies
@@ -160,13 +170,25 @@ class Bybit(Feed):
                     if 'USDT' in pair and quote == 'USD':
                         continue
 
-                    await connection.write(json.dumps(
-                        {
-                            "op": "subscribe",
-                            "args": [f"{chan}.{pair}"]
-                        }
-                    ))
+                    chans.append(f"{chan}.{pair}")
+                    # await connection.write(json.dumps(
+                    #    {
+                    #        "op": "subscribe",
+                    #        "args": [f"{chan}.{pair}"]
+                    #    }
+                    #))
                     LOG.debug(f'{connection.uuid}: Subscribing to public, quote: {quote}, {chan}.{pair}')
+
+            elif chan in self.channels_without_symbol:
+                chans.append(f"{chan}")
+                LOG.debug(f'{connection.uuid}: Subscribing to private, {chan}')
+            
+            else:
+                raise NotImplementedError
+
+        for i in range(0, len(chans), 10):
+            await connection.write(json.dumps({"op": "subscribe", "args": chans[i:i+10]}))
+        
 
     async def _instrument_info(self, msg: dict, timestamp: float):
         """
