@@ -171,18 +171,13 @@ class Bybit(Feed):
                         continue
 
                     chans.append(f"{chan}.{pair}")
-                    # await connection.write(json.dumps(
-                    #    {
-                    #        "op": "subscribe",
-                    #        "args": [f"{chan}.{pair}"]
-                    #    }
-                    #))
                     LOG.debug(f'{connection.uuid}: Subscribing to public, quote: {quote}, {chan}.{pair}')
 
             elif chan in self.channels_without_symbol:
-                chans.append(f"{chan}")
-                LOG.debug(f'{connection.uuid}: Subscribing to private, {chan}')
-            
+                # chans.append(f"{chan}")
+                # LOG.debug(f'{connection.uuid}: Subscribing to private, {chan}')
+                pass
+
             else:
                 raise NotImplementedError
 
@@ -468,12 +463,10 @@ class Bybit(Feed):
                 'create_type': data.get('create_type'),
             }
             LOG.debug(f"Handle order msg: {data_to_log}")
-            await self.callback(ORDER_INFO, feed=self.id, symbol=symbol, data=data, receipt_timestamp=timestamp)
+            await self.callback(ORDER_INFO, feed=self.id, symbol=symbol, receipt_timestamp=timestamp, **data)
 
     def parse_balance(self, data: dict[str, Any]) -> dict[str, Any]:
-        balance: dict[str, Any] = {
-            'timestamp': self.timestamp_normalize(data['timestamp'])
-        }
+        balance: dict[str, Any] = {}
         if self.custom_account_id or data.get('user_id') is not None:
             balance['account'] = self.custom_account_id or data['user_id']
         if data.get('coin') is not None:
@@ -501,6 +494,7 @@ class Bybit(Feed):
         """
         for i in range(len(msg["data"])):
             data = self.parse_balance(msg["data"][i])
+            data['timestamp'] = timestamp
             data_to_log = {
                 'feed': self.id,
                 'timestamp': data.get('timestamp'),
@@ -574,6 +568,7 @@ class Bybit(Feed):
         """        
         for i in range(len(msg["data"])):
             data = self.parse_position(msg["data"][i])
+            data['timestamp'] = timestamp
             data_to_log = {
                 'feed': self.id,
                 'account': data.get('account'),
