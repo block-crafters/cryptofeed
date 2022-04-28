@@ -105,11 +105,11 @@ class Bybit(Feed):
             await self._book(msg, timestamp)
         elif "instrument_info" in msg["topic"]:
             await self._instrument_info(msg, timestamp)
-        elif "order" == msg["topic"]:
+        elif "order" in msg["topic"]:
             await self._order(msg, timestamp)
         elif "wallet" == msg["topic"]:
             await self._balance(msg, timestamp)
-        elif "position" == msg["position"]:
+        elif "position" == msg["topic"]:
             await self._position(msg, timestamp)
         elif "execution" in msg["topic"]:
             await self._execution(msg, timestamp)
@@ -389,13 +389,13 @@ class Bybit(Feed):
         if data.get('order_link_id') is not None:
             order['clientOrderId'] = data['order_link_id']
         if data.get('price') is not None:
-            order['price'] = Decimal(data['price'])
-            # Bitmex is using order['avgPrice'] but seems latest CCXT uses 'average' key instead?
+            order['price'] = order['average'] = Decimal(data['price'])
         if data.get('qty') is not None:
             order['amount'] = Decimal(data['qty'])
-            if data.get('leaves_qty') is not None:
-                order['filled'] = order['amount'] - data['leaves_qty']
-                order['remaining'] = data['leaves_qty']
+        if data.get('leaves_qty') is not None:
+            order['remaining'] = Decimal(data['leaves_qty'])
+        if data.get('cum_exec_qty') is not None:
+            order['filled'] = Decimal(data.get('cum_exec_qty'))
         if data.get('order_type') is not None:
             order['orderType'] = data['order_type']
         order['lastTradeTimestamp'] = order["timestamp"]
@@ -452,7 +452,7 @@ class Bybit(Feed):
         balance: dict[str, Any] = {
             'timestamp': self.timestamp_normalize(data['timestamp'])
         }
-        if data.get('user_id') is not None:
+        if self.custom_account_id or data.get('user_id') is not None:
             balance['account'] = self.custom_account_id or data['user_id']
         if data.get('coin') is not None:
             balance['currency'] = data['coin']
@@ -482,7 +482,7 @@ class Bybit(Feed):
             data_to_log = {
                 'feed': self.id,
                 'timestamp': data.get('timestamp'),
-                'currency': data.get('symbol'),
+                'currency': data.get('currency'),
                 'total': data.get('total'),
                 'free': data.get('free'),
             }
@@ -492,7 +492,7 @@ class Bybit(Feed):
     def parse_position(self, data: dict[str, Any]) -> dict[str, Any]:
         position: dict[str, Any] = {}
         
-        if data.get('user_id') is not None:
+        if self.custom_account_id or data.get('user_id') is not None:
             position['account'] = self.custom_account_id or data['user_id']
         if data.get('symbol') is not None:
             position['symbol'] = self.exchange_symbol_to_std_symbol(data['symbol'])

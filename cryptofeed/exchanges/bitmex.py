@@ -89,7 +89,7 @@ class Bitmex(Feed, BitmexRestMixin):
         if data.get('price') is not None:
             order['price'] = Decimal(data['price'])
         if data.get('avgPx') is not None:
-            order['avgPrice'] = Decimal(data.get('avgPx'))
+            order['average'] = Decimal(data.get('avgPx'))
         if data.get('clOrdID') is not None:
             order['clientOrderId'] = data.get('clOrdID')
         if data.get('stopPx') is not None:
@@ -115,7 +115,7 @@ class Bitmex(Feed, BitmexRestMixin):
         position = {
             'timestamp': timestamp
         }
-        if data.get('account') is not None:
+        if self.custom_account_id or data.get('account') is not None:
             position['account'] = self.custom_account_id or data['account']
         if data.get('symbol') is not None:
             position['symbol'] = self.exchange_symbol_to_std_symbol(data['symbol'])
@@ -146,7 +146,7 @@ class Bitmex(Feed, BitmexRestMixin):
         balance = {
             'timestamp': timestamp
         }
-        if data.get('account') is not None:
+        if self.custom_account_id or data.get('account') is not None:
             balance['account'] = self.custom_account_id or data['account']
         if data.get('availableMargin') is not None:
             balance['free'] = Decimal(data['availableMargin'])
