@@ -454,7 +454,6 @@ class Bybit(Feed):
         """
         for i in range(len(msg['data'])):
             data = self.parse_order(msg['data'][i])
-            symbol = data['symbol']
             data_to_log = {
                 'feed': self.id,
                 'timestamp': data.get('timestamp'),
@@ -463,7 +462,7 @@ class Bybit(Feed):
                 'create_type': data.get('create_type'),
             }
             LOG.debug(f"Handle order msg: {data_to_log}")
-            await self.callback(ORDER_INFO, feed=self.id, symbol=symbol, receipt_timestamp=timestamp, **data)
+            await self.callback(ORDER_INFO, feed=self.id, receipt_timestamp=timestamp, **data)
 
     def parse_balance(self, data: dict[str, Any]) -> dict[str, Any]:
         balance: dict[str, Any] = {}
