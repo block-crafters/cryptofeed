@@ -173,17 +173,8 @@ class Bybit(Feed):
                     chans.append(f"{chan}.{pair}")
                     LOG.debug(f'{connection.uuid}: Subscribing to public, quote: {quote}, {chan}.{pair}')
 
-            elif chan in self.channels_without_symbol:
-                # chans.append(f"{chan}")
-                # LOG.debug(f'{connection.uuid}: Subscribing to private, {chan}')
-                pass
-
-            else:
-                raise NotImplementedError
-
         for i in range(0, len(chans), 10):
             await connection.write(json.dumps({"op": "subscribe", "args": chans[i:i+10]}))
-        
 
     async def _instrument_info(self, msg: dict, timestamp: float):
         """
