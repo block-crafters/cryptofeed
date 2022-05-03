@@ -9,14 +9,17 @@ from cryptofeed.symbols import Symbol
 import logging
 from decimal import Decimal
 from functools import partial
-from typing import Dict, List, Callable, Tuple, Union
+from typing import Any, Dict, List, Callable, Optional, Tuple, Union
 from datetime import datetime as dt
 
 from sortedcontainers import SortedDict as sd
 from yapic import json
 
 from cryptofeed.connection import AsyncConnection, WSAsyncConn
-from cryptofeed.defines import BID, ASK, BUY, BYBIT, FUNDING, L2_BOOK, SELL, TRADES, OPEN_INTEREST, FUTURES_INDEX, ORDER_INFO, USER_FILLS, FUTURES, PERPETUAL
+from cryptofeed.defines import (
+    BALANCES, BID, ASK, BUY, BYBIT, FUNDING, L2_BOOK, POSITIONS, SELL, TRADES, 
+    OPEN_INTEREST, FUTURES_INDEX, ORDER_INFO, USER_FILLS, FUTURES, PERPETUAL
+)
 from cryptofeed.feed import Feed
 # For auth
 import hmac
@@ -35,8 +38,16 @@ class Bybit(Feed):
         ORDER_INFO: 'order',
         FUTURES_INDEX: 'instrument_info.100ms',
         OPEN_INTEREST: 'instrument_info.100ms',
-        FUNDING: 'instrument_info.100ms'
+        FUNDING: 'instrument_info.100ms',
+        ORDER_INFO: 'order',
+        POSITIONS: 'position',
+        BALANCES: 'wallet'
     }
+    channels_without_symbol = [
+        websocket_channels[POSITIONS],
+        websocket_channels[ORDER_INFO],
+        websocket_channels[BALANCES],
+    ]
 
     @classmethod
     def timestamp_normalize(cls, ts: Union[int, dt]) -> float:
@@ -104,6 +115,10 @@ class Bybit(Feed):
             await self._instrument_info(msg, timestamp)
         elif "order" in msg["topic"]:
             await self._order(msg, timestamp)
+        elif "wallet" == msg["topic"]:
+            await self._balance(msg, timestamp)
+        elif "position" == msg["topic"]:
+            await self._position(msg, timestamp)
         elif "execution" in msg["topic"]:
             await self._execution(msg, timestamp)
         else:
@@ -144,7 +159,9 @@ class Bybit(Feed):
 
         self.__reset(quote=quote)
 
+        chans: list[str] = []
         for chan in self.subscription:
+
             if not self.is_authenticated_channel(self.exchange_channel_to_std(chan)):
                 for pair in self.subscription[chan]:
                     # Bybit uses separate addresses for difference quote currencies
@@ -153,13 +170,11 @@ class Bybit(Feed):
                     if 'USDT' in pair and quote == 'USD':
                         continue
 
-                    await connection.write(json.dumps(
-                        {
-                            "op": "subscribe",
-                            "args": [f"{chan}.{pair}"]
-                        }
-                    ))
+                    chans.append(f"{chan}.{pair}")
                     LOG.debug(f'{connection.uuid}: Subscribing to public, quote: {quote}, {chan}.{pair}')
+
+        for i in range(0, len(chans), 10):
+            await connection.write(json.dumps({"op": "subscribe", "args": chans[i:i+10]}))
 
     async def _instrument_info(self, msg: dict, timestamp: float):
         """
@@ -342,11 +357,217 @@ class Bybit(Feed):
             ts = int(ts)
         await self.book_callback(self._l2_book[pair], L2_BOOK, pair, forced, delta, ts / 1000000, timestamp)
 
+    @staticmethod
+    def parse_time_in_force(time_in_force: str) -> Optional[str]:
+        return {
+            'GoodTillCancel': 'GTC',
+            'ImmediateOrCancel': 'IOC',
+            'FillOrKill': 'FOK',
+            'PostOnly': 'PO',
+        }.get(time_in_force)
+
+    @staticmethod
+    def parse_order_status(status: str) -> Optional[str]:
+        return {
+            'Created': 'open',
+            'Rejected': 'rejected',
+            'New': 'open',
+            'PartiallyFilled': 'open',
+            'Filled': 'closed',
+            'Cancelled': 'canceled',
+            'PendingCancel': 'open',
+        }.get(status)
+
+    def parse_order(self, data: dict[str, Any]) -> dict[str, Any]:
+        timestamp = self.timestamp_normalize(data['timestamp'])
+        order = {
+            'order_id': data['order_id'],
+            'timestamp': timestamp,
+            'account': self.custom_account_id,
+        }
+        if data.get('symbol') is not None:
+            order['symbol'] = self.exchange_symbol_to_std_symbol(data['symbol'])
+        if data.get('side') is not None:
+            order['side'] = SELL if data['side'] == "Sell" else BUY
+        if data.get('order_status') is not None:
+            order['status'] = self.parse_order_status(data['order_status'])
+            order['postOnly'] = (order['status'] == 'PO')
+        if data.get('time_in_force') is not None:
+            order['timeInForce'] = self.parse_time_in_force(data['time_in_force'])
+        if data.get('order_link_id') is not None:
+            order['clientOrderId'] = data['order_link_id']
+        if data.get('price') is not None:
+            order['price'] = order['average'] = Decimal(data['price'])
+        if data.get('qty') is not None:
+            order['amount'] = Decimal(data['qty'])
+        if data.get('leaves_qty') is not None:
+            order['remaining'] = Decimal(data['leaves_qty'])
+        if data.get('cum_exec_qty') is not None:
+            order['filled'] = Decimal(data.get('cum_exec_qty'))
+        if data.get('order_type') is not None:
+            order['orderType'] = data['order_type']
+        order['lastTradeTimestamp'] = order["timestamp"]
+
+        return order
+
     async def _order(self, msg: dict, timestamp: float):
+        """
+        {
+            "topic": "order",
+            "data": [
+                {
+                    "order_id": "xxxxxxxx-xxxx-xxxx-9a8f-4a973eb5c418", # (O)
+                    "order_link_id": "",                                # (O)
+                    "symbol": "BTCUSD",                                 # (O)
+                    "side": "Sell",                                     # (O)
+                    "order_type": "Market",
+                    "price": "8579.5",                                  # (O)
+                    "qty": 1,                                           # (O)
+                    "time_in_force": "ImmediateOrCancel",               # (O)
+                    "create_type": "CreateByClosing",
+                    "cancel_type": "",
+                    "order_status": "Filled",                           # (O)
+                    "leaves_qty": 0,                                    # (O)
+                    "cum_exec_qty": 1,
+                    "cum_exec_value": "0.00011655",
+                    "cum_exec_fee": "0.00000009",
+                    "timestamp": "2020-01-14T14:09:31.778Z",            # (O)
+                    "take_profit": "0",
+                    "stop_loss": "0",
+                    "trailing_stop": "0",
+                    "trailing_active": "0",
+                    "last_exec_price": "8580",
+                    "reduce_only": false,
+                    "close_on_trigger": false
+                }
+            ]
+        }
+        """
         for i in range(len(msg['data'])):
-            data = msg['data'][i]
-            symbol = self.exchange_symbol_to_std_symbol(data['symbol'])
-            await self.callback(ORDER_INFO, feed=self.id, symbol=symbol, data=data, receipt_timestamp=timestamp)
+            data = self.parse_order(msg['data'][i])
+            data_to_log = {
+                'feed': self.id,
+                'timestamp': data.get('timestamp'),
+                'symbol': data.get('symbol'),
+                'order_id': data.get('order_id'),
+                'create_type': data.get('create_type'),
+            }
+            LOG.debug(f"Handle order msg: {data_to_log}")
+            await self.callback(ORDER_INFO, feed=self.id, receipt_timestamp=timestamp, **data)
+
+    def parse_balance(self, data: dict[str, Any]) -> dict[str, Any]:
+        balance: dict[str, Any] = {}
+        if self.custom_account_id or data.get('user_id') is not None:
+            balance['account'] = self.custom_account_id or data['user_id']
+        if data.get('coin') is not None:
+            balance['currency'] = data['coin']
+        if data.get('wallet_balance') is not None:
+            balance['total'] = Decimal(data['wallet_balance'])
+        if data.get('available_balance') is not None:
+            balance['free'] = Decimal(data['available_balance'])
+
+        return balance
+
+    async def _balance(self, msg: dict, timestamp: float):
+        """
+        {
+            "topic": "wallet",
+            "data": [
+                {
+                    "user_id": 738713,
+                    "coin": "BTC",
+                    "available_balance": "1.50121026",
+                    "wallet_balance": "1.50121261"
+                }
+            ]
+        }
+        """
+        for i in range(len(msg["data"])):
+            data = self.parse_balance(msg["data"][i])
+            data['timestamp'] = timestamp
+            data_to_log = {
+                'feed': self.id,
+                'timestamp': data.get('timestamp'),
+                'currency': data.get('currency'),
+                'total': data.get('total'),
+                'free': data.get('free'),
+            }
+            LOG.debug(f"Handle margin msg: {data_to_log}")
+            await self.callback(BALANCES, feed=self.id, **data)
+
+    def parse_position(self, data: dict[str, Any]) -> dict[str, Any]:
+        position: dict[str, Any] = {}
+        
+        if self.custom_account_id or data.get('user_id') is not None:
+            position['account'] = self.custom_account_id or data['user_id']
+        if data.get('symbol') is not None:
+            position['symbol'] = self.exchange_symbol_to_std_symbol(data['symbol'])
+        if data.get('liq_price') is not None:
+            position['liquidationPrice'] = Decimal(data['liq_price'])
+        if data.get('size') is not None and data.get('side') is not None:
+            position['contracts'] = Decimal(data['size']) * (-1 if data['side'] == "Sell" else 1)
+        if data.get('entry_price') is not None:
+            position['entryPrice'] = Decimal(data['entry_price'])
+        if data.get('leverage') is not None:
+            position['leverage'] = Decimal(data['leverage'])
+        if data.get('is_isolated') is not None:
+            position['marginType'] = 'cross' if not data['is_isolated'] else 'isolated'
+        if data.get('position_value') is not None:
+            position['homeNotional'] = Decimal(data['position_value'])
+
+        return position
+
+    async def _position(self, msg: dict, timestamp: float):
+        """
+        {
+            "topic": "position",
+            "action": "update",
+            "data": [
+                {
+                    "user_id":  1,                           (O) // user ID
+                    "symbol": "BTCUSD",                      (O) // the contract for this position
+                    "size": 11,                              (O) // the current position amount
+                    "side": "Sell",                          (O) // side
+                    "position_value": "0.00159252",          (O) // positional value
+                    "entry_price": "6907.291588174717",      (O) // entry price
+                    "liq_price": "7100.234",                 (O) // liquidation price
+                    "bust_price": "7088.1234",                // bankruptcy price
+                    "leverage": "1",                         (O) // leverage
+                    "order_margin":  "1",                      // order margin
+                    "position_margin":  "1",                   // position margin
+                    "available_balance":  "2",                 // available balance
+                    "take_profit": "0",                        // take profit price           
+                    "tp_trigger_by":  "LastPrice",             // take profit trigger price, eg: LastPrice, IndexPrice. Conditional order only
+                    "stop_loss": "0",                          // stop loss price
+                    "sl_trigger_by":  "",                     // stop loss trigger price, eg: LastPrice, IndexPrice. Conditional order only
+                    "realised_pnl":  "0.10",               // realised PNL
+                    "trailing_stop": "0",                  // trailing stop points
+                    "trailing_active": "0",                // trailing stop trigger price
+                    "wallet_balance":  "4.12",             // wallet balance
+                    "risk_id":  1,                       
+                    "occ_closing_fee":  "0.1",             // position closing
+                    "occ_funding_fee":  "0.1",             // funding fee
+                    "auto_add_margin": 0,                  // auto margin replenishment switch
+                    "cum_realised_pnl":  "0.12",           // Total realized profit and loss
+                    "position_status": "Normal",           // status of position (Normal: normal Liq: in the process of liquidation Adl: in the process of Auto-Deleveraging)
+                                    // Auto margin replenishment enabled (0: no 1: yes)
+                    "position_seq": 14                     // position version number
+                }
+            ]
+        }
+        """        
+        for i in range(len(msg["data"])):
+            data = self.parse_position(msg["data"][i])
+            data['timestamp'] = timestamp
+            data_to_log = {
+                'feed': self.id,
+                'account': data.get('account'),
+                'symbol': data.get('symbol'),
+                'contracts': data.get('contracts'),
+                'liquidationPrice': data.get('liquidationPrice')
+            }
+            LOG.debug(f"Handle position msg: {data_to_log}")
+            await self.callback(POSITIONS, feed=self.id, **data)
 
     async def _execution(self, msg: dict, timestamp: float):
         for i in range(len(msg['data'])):
