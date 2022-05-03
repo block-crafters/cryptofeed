@@ -31,7 +31,7 @@ class Feed(Exchange):
         symbols=None, channels=None, subscription=None, callbacks=None, max_depth=None, 
         book_interval=1000, snapshot_interval=False, checksum_validation=False, cross_check=False, 
         origin=None, exceptions=None, log_message_on_error=False, delay_start=0, http_proxy: StrOrURL = None, 
-        custom_account_id: Optional[Union[int, str]] = None,
+        custom_account_id: Optional[str] = None,
         **kwargs):
         """
         address: str, or dict

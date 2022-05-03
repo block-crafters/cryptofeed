@@ -38,8 +38,16 @@ class Bybit(Feed):
         ORDER_INFO: 'order',
         FUTURES_INDEX: 'instrument_info.100ms',
         OPEN_INTEREST: 'instrument_info.100ms',
-        FUNDING: 'instrument_info.100ms'
+        FUNDING: 'instrument_info.100ms',
+        ORDER_INFO: 'order',
+        POSITIONS: 'position',
+        BALANCES: 'wallet'
     }
+    channels_without_symbol = [
+        websocket_channels[POSITIONS],
+        websocket_channels[ORDER_INFO],
+        websocket_channels[BALANCES],
+    ]
 
     @classmethod
     def timestamp_normalize(cls, ts: Union[int, dt]) -> float:
@@ -151,7 +159,9 @@ class Bybit(Feed):
 
         self.__reset(quote=quote)
 
+        chans: list[str] = []
         for chan in self.subscription:
+
             if not self.is_authenticated_channel(self.exchange_channel_to_std(chan)):
                 for pair in self.subscription[chan]:
                     # Bybit uses separate addresses for difference quote currencies
@@ -160,13 +170,11 @@ class Bybit(Feed):
                     if 'USDT' in pair and quote == 'USD':
                         continue
 
-                    await connection.write(json.dumps(
-                        {
-                            "op": "subscribe",
-                            "args": [f"{chan}.{pair}"]
-                        }
-                    ))
+                    chans.append(f"{chan}.{pair}")
                     LOG.debug(f'{connection.uuid}: Subscribing to public, quote: {quote}, {chan}.{pair}')
+
+        for i in range(0, len(chans), 10):
+            await connection.write(json.dumps({"op": "subscribe", "args": chans[i:i+10]}))
 
     async def _instrument_info(self, msg: dict, timestamp: float):
         """
@@ -437,7 +445,6 @@ class Bybit(Feed):
         """
         for i in range(len(msg['data'])):
             data = self.parse_order(msg['data'][i])
-            symbol = data['symbol']
             data_to_log = {
                 'feed': self.id,
                 'timestamp': data.get('timestamp'),
@@ -446,12 +453,10 @@ class Bybit(Feed):
                 'create_type': data.get('create_type'),
             }
             LOG.debug(f"Handle order msg: {data_to_log}")
-            await self.callback(ORDER_INFO, feed=self.id, symbol=symbol, data=data, receipt_timestamp=timestamp)
+            await self.callback(ORDER_INFO, feed=self.id, receipt_timestamp=timestamp, **data)
 
     def parse_balance(self, data: dict[str, Any]) -> dict[str, Any]:
-        balance: dict[str, Any] = {
-            'timestamp': self.timestamp_normalize(data['timestamp'])
-        }
+        balance: dict[str, Any] = {}
         if self.custom_account_id or data.get('user_id') is not None:
             balance['account'] = self.custom_account_id or data['user_id']
         if data.get('coin') is not None:
@@ -479,6 +484,7 @@ class Bybit(Feed):
         """
         for i in range(len(msg["data"])):
             data = self.parse_balance(msg["data"][i])
+            data['timestamp'] = timestamp
             data_to_log = {
                 'feed': self.id,
                 'timestamp': data.get('timestamp'),
@@ -552,6 +558,7 @@ class Bybit(Feed):
         """        
         for i in range(len(msg["data"])):
             data = self.parse_position(msg["data"][i])
+            data['timestamp'] = timestamp
             data_to_log = {
                 'feed': self.id,
                 'account': data.get('account'),
