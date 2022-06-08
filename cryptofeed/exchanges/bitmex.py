@@ -53,6 +53,22 @@ class Bitmex(Feed, BitmexRestMixin):
         for entry in data:
             base = entry['rootSymbol'].replace("XBT", "BTC")
             quote = entry['quoteCurrency'].replace("XBT", "BTC")
+            # NOTE: Markets with ETH margin currency newly listed on 2022-05-31
+            # -> ETHUSD_ETH, ETHUSDM22_ETH, ETHUSDU22_ETH
+            # If makes conflicts during parsing symbols
+            # ETHUSD and ETHUSD_ETH has same base and quote, and also they're both perpetual
+            # For this reason, the results of normalizing symbol are same as ETH-USD-PERP
+            # To resolve this conflict and keep stable current running code,
+            # manipulate quote to {quote}_ETH format if settlCurrency is 'Gwei'
+            margin_currency = entry['settlCurrency']
+            if margin_currency in ['XBt', 'USDt', '']:
+                # existing markets
+                pass
+            elif margin_currency == 'Gwei':
+                quote = f"{quote}_ETH"
+            else:
+                exchange_symbol = entry['symbol']
+                raise ValueError(f"New market {exchange_symbol} with {margin_currency} margin currency was listed")
 
             stype = PERPETUAL
             if entry['expiry']:
