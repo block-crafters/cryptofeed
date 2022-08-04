@@ -30,6 +30,7 @@ def convert_to_str(data):
 class RedisCallback(BackendQueue):
 
     forced_timestamp_key: ClassVar[Optional[str]] = None
+    timestamp_key_suffix: ClassVar[str] = "__timestamp"
 
     def __init__(self, host='127.0.0.1', port=6379, socket=None, key=None, numeric_type=float, **kwargs):
         """
@@ -45,8 +46,8 @@ class RedisCallback(BackendQueue):
         self.key = key if key else self.default_key
         self.numeric_type = numeric_type
 
-    def set_timestamp(self, pipe: Optional[aioredis.client.Pipeline], key: Optional[str] = None):
-        timestamp_key = (type(self).forced_timestamp_key or key or self.key) + ":__timestamp"
+    def set_timestamp(self, pipe: aioredis.client.Pipeline, key: Optional[str] = None):
+        timestamp_key = (type(self).forced_timestamp_key or key or self.key) + ":" + type(self).timestamp_key_suffix
         return pipe.set(timestamp_key, time.time())
 
 
