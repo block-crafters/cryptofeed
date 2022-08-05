@@ -8,6 +8,7 @@ import asyncio
 from asyncio.queues import Queue
 from contextlib import asynccontextmanager
 from decimal import Decimal
+from typing import Optional
 
 from cryptofeed.backends._util import book_convert, book_delta_convert
 from cryptofeed.defines import BID, ASK, BITMEX
@@ -32,9 +33,10 @@ class BackendQueue:
         self.queue.task_done()
 
     @asynccontextmanager
-    async def read_many_queue(self, count: int):
+    async def read_many_queue(self, count: Optional[int] = None):
         ret = []
         counter = 0
+        count = count or max(self.queue.qsize(), 1)
         while counter < count:
             update = await self.queue.get()
             ret.append(update)
