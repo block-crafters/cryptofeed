@@ -161,7 +161,7 @@ class Feed(Exchange):
                     self.do_deltas = True
                 elif cb_type == ORDER_INFO:
                     cb_func.set_forced_timestamp_key(
-                        f"{type(self).__name__.upper()}:{self.custom_account_id}:{origin_symbols[0]}"
+                        f"order_info:{type(self).__name__.upper()}:{self.custom_account_id}:{origin_symbols[0]}"
                     )
 
         for key, callback in self.callbacks.items():
