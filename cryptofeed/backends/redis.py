@@ -46,6 +46,9 @@ class RedisCallback(BackendQueue):
         self.key = key if key else self.default_key
         self.numeric_type = numeric_type
 
+    def set_forced_timestamp_key(self, key: str) -> None:
+        self.forced_timestamp_key = key
+
     def set_timestamp(self, pipe: aioredis.client.Pipeline, key: Optional[str] = None):
         timestamp_key = (self.forced_timestamp_key or key or self.key) + ":" + type(self).timestamp_key_suffix
         return pipe.set(timestamp_key, time.time())
@@ -76,6 +79,7 @@ class RedisHashCallback(RedisCallback):
     def __init__(self, host='127.0.0.1', port=6379, socket=None, key=None, numeric_type=float, score_key='timestamp', **kwargs):
         self.score_key = score_key
         super().__init__(host=host, port=port, socket=socket, key=key, numeric_type=numeric_type, **kwargs)
+
     async def write(self, feed: str, symbol: str, timestamp: float, receipt_timestamp: float, data: dict, key=None):
         score = data[self.score_key]
         await self.queue.put({'feed': feed, 'symbol': symbol, 'score': score, 'data': data, 'key': key})
@@ -327,10 +331,6 @@ class BalancesStream(RedisStreamCallback, BackendBalancesCallback):
 
 class OrderInfoLatestRedis(RedisHashCallback, BackendOrderInfoCallback):
     default_key = 'order_info'
-
-    def __init__(self, *args, goni_account_id: str, goni_exchange_id: str, goni_cryptofeed_symbol: str, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.forced_timestamp_key = f"order_info:{goni_exchange_id}:{goni_account_id}:{goni_cryptofeed_symbol}"
 
     async def write(self, feed: str, symbol: str, timestamp: float, receipt_timestamp: float, data: dict):
         order_id = data['order_id']

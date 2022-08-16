@@ -6,6 +6,7 @@ associated with this software.
 '''
 from cryptofeed.defines import *
 from cryptofeed.defines import FTX as FTX_str, EXX as EXX_str
+from cryptofeed.feed import Feed
 from .phemex import Phemex
 from .ascendex import AscendEX
 from .bequant import Bequant
@@ -44,7 +45,7 @@ from .probit import Probit
 from .upbit import Upbit
 
 # Maps string name to class name for use with config
-EXCHANGE_MAP = {
+EXCHANGE_MAP: dict[str, Feed] = {
     ASCENDEX: AscendEX,
     BEQUANT: Bequant,
     BINANCE_DELIVERY: BinanceDelivery,

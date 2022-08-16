@@ -5,6 +5,8 @@ Please see the LICENSE file for the terms and conditions
 associated with this software.
 '''
 from collections import defaultdict
+from copy import deepcopy
+from cryptofeed.backends.redis import RedisCallback
 from cryptofeed.exchange import Exchange
 from functools import partial
 import logging
@@ -28,7 +30,7 @@ class Feed(Exchange):
     def __init__(
         self, 
         address: Union[dict, str], timeout=120, timeout_interval=30, retries=10, 
-        symbols=None, channels=None, subscription=None, callbacks=None, max_depth=None, 
+        symbols=None, channels=None, subscription=None, callbacks: Optional[dict[str,RedisCallback]]=None, max_depth=None, 
         book_interval=1000, snapshot_interval=False, checksum_validation=False, cross_check=False, 
         origin=None, exceptions=None, log_message_on_error=False, delay_start=0, http_proxy: StrOrURL = None, 
         custom_account_id: Optional[str] = None,
@@ -117,6 +119,8 @@ class Feed(Exchange):
                 self.subscription[chan].update([self.std_symbol_to_exchange_symbol(symbol) for symbol in subscription[channel]])
                 self._feed_config[channel].extend(self.normalized_symbols)
 
+        origin_symbols = deepcopy(symbols)
+
         if symbols and channels:
             if any(self.is_authenticated_channel(chan) for chan in channels):
                 if not self.key_id or not self.key_secret:
@@ -155,6 +159,10 @@ class Feed(Exchange):
                 self.callbacks[cb_type] = cb_func
                 if cb_type == BOOK_DELTA:
                     self.do_deltas = True
+                elif cb_type == ORDER_INFO:
+                    cb_func.set_forced_timestamp_key(
+                        f"{type(self).__name__.upper()}:{self.custom_account_id}:{origin_symbols[0]}"
+                    )
 
         for key, callback in self.callbacks.items():
             if not isinstance(callback, list):
