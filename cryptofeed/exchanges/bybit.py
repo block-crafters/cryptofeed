@@ -494,7 +494,10 @@ class Bybit(Feed):
             LOG.debug(f"Handle margin msg: {data_to_log}")
             await self.callback(BALANCES, feed=self.id, **data)
 
-    def parse_position(self, data: dict[str, Any]) -> dict[str, Any]:
+    def _parse_position(self, data: dict[str, Any]) -> dict[str, Any]:
+        # NOTE: Note that changes to unrealised_pnl won't trigger new message pushes as it changes constantly with the last traded price. 
+        # You can calculate the unrealised PNL yourself by referring to these formulas.
+        # https://www.bybit.com/en-US/help-center/HelpCenterKnowledge/bybitHC_Article?language=en_US&id=000001101
         position: dict[str, Any] = {}
         
         if self.custom_account_id or data.get('user_id') is not None:
@@ -502,17 +505,17 @@ class Bybit(Feed):
         if data.get('symbol') is not None:
             position['symbol'] = self.exchange_symbol_to_std_symbol(data['symbol'])
         if data.get('liq_price') is not None:
-            position['liquidationPrice'] = Decimal(data['liq_price'])
+            position['liquidation_price'] = Decimal(data['liq_price'])
         if data.get('size') is not None and data.get('side') is not None:
             position['contracts'] = Decimal(data['size']) * (-1 if data['side'] == "Sell" else 1)
         if data.get('entry_price') is not None:
-            position['entryPrice'] = Decimal(data['entry_price'])
+            position['entry_price'] = Decimal(data['entry_price'])
         if data.get('leverage') is not None:
             position['leverage'] = Decimal(data['leverage'])
         if data.get('is_isolated') is not None:
-            position['marginType'] = 'cross' if not data['is_isolated'] else 'isolated'
+            position['margin_mode'] = 'cross' if not data['is_isolated'] else 'isolated'
         if data.get('position_value') is not None:
-            position['homeNotional'] = Decimal(data['position_value'])
+            position['notional'] = Decimal(data['position_value'])
 
         return position
 
@@ -556,16 +559,16 @@ class Bybit(Feed):
         }
         """        
         for i in range(len(msg["data"])):
-            data = self.parse_position(msg["data"][i])
+            data = self._parse_position(msg["data"][i])
             data['timestamp'] = timestamp
             data_to_log = {
                 'feed': self.id,
                 'account': data.get('account'),
                 'symbol': data.get('symbol'),
                 'contracts': data.get('contracts'),
-                'liquidationPrice': data.get('liquidationPrice')
+                'liquidation_price': data.get('liquidation_price')
             }
-            LOG.debug(f"Handle position msg: {data_to_log}")
+            LOG.info(f"Handle position msg: {data_to_log}")
             await self.callback(POSITIONS, feed=self.id, **data)
 
     async def _execution(self, msg: dict, timestamp: float):
