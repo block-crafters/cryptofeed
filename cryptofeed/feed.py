@@ -119,8 +119,6 @@ class Feed(Exchange):
                 self.subscription[chan].update([self.std_symbol_to_exchange_symbol(symbol) for symbol in subscription[channel]])
                 self._feed_config[channel].extend(self.normalized_symbols)
 
-        origin_symbols = deepcopy(symbols)
-
         if symbols and channels:
             if any(self.is_authenticated_channel(chan) for chan in channels):
                 if not self.key_id or not self.key_secret:
