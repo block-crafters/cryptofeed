@@ -345,5 +345,5 @@ class OrderInfoLatestRedis(RedisHashCallback, BackendOrderInfoCallback):
                     order_id = update['order_id']
                     convert_to_str(data)
                     pipe = pipe.hmset(key, data)
-                    pipe = self.set_timestamp(pipe, key.replace(order_id, type(self).timestamp_key_suffix))
+                    pipe = self.set_timestamp(pipe, key.replace(":" + order_id, ""))
                 await pipe.execute()
