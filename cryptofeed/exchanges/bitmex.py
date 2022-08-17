@@ -157,17 +157,21 @@ class Bitmex(Feed, BitmexRestMixin):
             position['markPrice'] = Decimal(data['markPrice'])
         return position
 
-    def parse_margin(self, data):
+    def _parse_balance(self, data) -> dict:
         timestamp = self.timestamp_normalize(data['timestamp'])
         balance = {
             'timestamp': timestamp
         }
         if self.custom_account_id or data.get('account') is not None:
             balance['account'] = self.custom_account_id or data['account']
+        if data.get('walletBalance') is not None:
+            balance['wallet_balance'] = Decimal(data['walletBalance'])
         if data.get('availableMargin') is not None:
-            balance['free'] = Decimal(data['availableMargin'])
+            balance['available_balance'] = Decimal(data['availableMargin'])
         if data.get('marginBalance') is not None:
-            balance['total'] = Decimal(data['marginBalance'])
+            balance['margin_balance'] = Decimal(data['marginBalance'])
+        if data.get('unrealisedPnl') is not None:
+            balance['unrealized_pnl'] = Decimal(data['unrealisedPnl'])
         if data.get('currency') is not None:
             balance['currency'] = self.parse_currency(data['currency'])
         return balance
@@ -825,13 +829,14 @@ class Bitmex(Feed, BitmexRestMixin):
         """
 
         for data in msg['data']:
-            parsed_data = self.parse_margin(data)
+            parsed_data = self._parse_balance(data)
             data_to_log = {
                 'feed': self.id,
                 'account': parsed_data.get('account'),
                 'currecny': parsed_data.get('currency'),
-                'total': parsed_data.get('total'),
-                'free': parsed_data.get('free')
+                'wallet_balance': parsed_data.get('wallet_balance'),
+                'margin_balance': parsed_data.get('margin_balance'),
+                'available_balance': parsed_data.get('available_balance')
                 }
             LOG.info(f"Handle margin msg: {data_to_log}")
             await self.callback(BALANCES, feed=self.id, **parsed_data)

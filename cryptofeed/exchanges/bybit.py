@@ -94,7 +94,6 @@ class Bybit(Feed):
                 del self._l2_book[symbol]
 
     async def message_handler(self, msg: str, conn, timestamp: float):
-
         msg = json.loads(msg, parse_float=Decimal)
 
         if "success" in msg:
@@ -455,16 +454,16 @@ class Bybit(Feed):
             LOG.debug(f"Handle order msg: {data_to_log}")
             await self.callback(ORDER_INFO, feed=self.id, receipt_timestamp=timestamp, **data)
 
-    def parse_balance(self, data: dict[str, Any]) -> dict[str, Any]:
+    def _parse_balance(self, data: dict[str, Any]) -> dict[str, Any]:
         balance: dict[str, Any] = {}
         if self.custom_account_id or data.get('user_id') is not None:
             balance['account'] = self.custom_account_id or data['user_id']
         if data.get('coin') is not None:
             balance['currency'] = data['coin']
         if data.get('wallet_balance') is not None:
-            balance['total'] = Decimal(data['wallet_balance'])
+            balance['wallet_balance'] = Decimal(data['wallet_balance'])
         if data.get('available_balance') is not None:
-            balance['free'] = Decimal(data['available_balance'])
+            balance['available_balance'] = Decimal(data['available_balance'])
 
         return balance
 
@@ -483,14 +482,14 @@ class Bybit(Feed):
         }
         """
         for i in range(len(msg["data"])):
-            data = self.parse_balance(msg["data"][i])
+            data = self._parse_balance(msg["data"][i])
             data['timestamp'] = timestamp
             data_to_log = {
                 'feed': self.id,
                 'timestamp': data.get('timestamp'),
                 'currency': data.get('currency'),
-                'total': data.get('total'),
-                'free': data.get('free'),
+                'wallet_balance': data.get('wallet_balance'),
+                'available_balance': data.get('available_balance'),
             }
             LOG.debug(f"Handle margin msg: {data_to_log}")
             await self.callback(BALANCES, feed=self.id, **data)
