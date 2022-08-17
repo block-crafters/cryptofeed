@@ -159,10 +159,6 @@ class Feed(Exchange):
                 self.callbacks[cb_type] = cb_func
                 if cb_type == BOOK_DELTA:
                     self.do_deltas = True
-                elif cb_type == ORDER_INFO:
-                    cb_func.set_forced_timestamp_key(
-                        f"order_info:{type(self).__name__.upper()}:{self.custom_account_id}:{origin_symbols[0]}"
-                    )
 
         for key, callback in self.callbacks.items():
             if not isinstance(callback, list):

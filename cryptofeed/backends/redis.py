@@ -46,9 +46,6 @@ class RedisCallback(BackendQueue):
         self.key = key if key else self.default_key
         self.numeric_type = numeric_type
 
-    def set_forced_timestamp_key(self, key: str) -> None:
-        self.forced_timestamp_key = key
-
     def set_timestamp(self, pipe: aioredis.client.Pipeline, key: Optional[str] = None):
         timestamp_key = (self.forced_timestamp_key or key or self.key) + ":" + type(self).timestamp_key_suffix
         return pipe.set(timestamp_key, time.time())
@@ -332,8 +329,21 @@ class BalancesStream(RedisStreamCallback, BackendBalancesCallback):
 class OrderInfoLatestRedis(RedisHashCallback, BackendOrderInfoCallback):
     default_key = 'order_info'
 
-    async def write(self, feed: str, symbol: str, timestamp: float, receipt_timestamp: float, data: dict):
+    async def write(self, feed: str, symbol: str, timestamp: float, receipt_timestamp: float, data: dict, key=None):
         order_id = data['order_id']
         account = data['account']
         key = f"{self.key}:{feed}:{account}:{symbol}:{order_id}"
-        await super().write(feed, symbol, timestamp, receipt_timestamp, data, key)
+        score = data[self.score_key]
+        await self.queue.put({'feed': feed, 'symbol': symbol, 'score': score, 'data': data, 'key': key, 'order_id': order_id})
+
+    async def writer(self):
+        while True:
+            async with self.read_many_queue() as updates, self.redis.pipeline(transaction=False) as pipe:
+                for update in updates:
+                    key: str = update['key']
+                    data = update['data']
+                    order_id = update['order_id']
+                    convert_to_str(data)
+                    pipe = pipe.hmset(key, data)
+                    pipe = self.set_timestamp(pipe, key.replace(order_id, type(self).timestamp_key_suffix))
+                await pipe.execute()
