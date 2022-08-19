@@ -4,7 +4,7 @@ Copyright (C) 2017-2021  Bryant Moscon - bmoscon@gmail.com
 Please see the LICENSE file for the terms and conditions
 associated with this software.
 '''
-from typing import Dict, Tuple
+from typing import Any, Dict, Tuple
 import hashlib
 import hmac
 import logging
@@ -126,7 +126,7 @@ class Bitmex(Feed, BitmexRestMixin):
             order['lastTradeTimestamp'] = self.timestamp_normalize(data.get('transactTime'))
         return order
 
-    def _parse_position(self, data):
+    def _parse_position(self, data: dict[str, Any]) -> dict[str, Any]:
         timestamp = self.timestamp_normalize(data['timestamp'])
         position = {
             'timestamp': timestamp
@@ -153,7 +153,7 @@ class Bitmex(Feed, BitmexRestMixin):
             position['margin_mode'] = 'cross' if data.get('crossMargin') else 'isolated'
         return position
 
-    def _parse_balance(self, data) -> dict:
+    def _parse_balance(self, data: dict[str, Any]) -> dict[str, Any]:
         timestamp = self.timestamp_normalize(data['timestamp'])
         balance = {
             'timestamp': timestamp
