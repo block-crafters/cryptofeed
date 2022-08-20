@@ -4,7 +4,7 @@ Copyright (C) 2017-2021  Bryant Moscon - bmoscon@gmail.com
 Please see the LICENSE file for the terms and conditions
 associated with this software.
 '''
-from typing import Dict, Tuple
+from typing import Any, Dict, Tuple
 import hashlib
 import hmac
 import logging
@@ -126,7 +126,7 @@ class Bitmex(Feed, BitmexRestMixin):
             order['lastTradeTimestamp'] = self.timestamp_normalize(data.get('transactTime'))
         return order
 
-    def parse_position(self, data):
+    def _parse_position(self, data: dict[str, Any]) -> dict[str, Any]:
         timestamp = self.timestamp_normalize(data['timestamp'])
         position = {
             'timestamp': timestamp
@@ -135,39 +135,39 @@ class Bitmex(Feed, BitmexRestMixin):
             position['account'] = self.custom_account_id or data['account']
         if data.get('symbol') is not None:
             position['symbol'] = self.exchange_symbol_to_std_symbol(data['symbol'])
-        if data.get('initMargin') is not None:
-            position['initialMargin'] = Decimal(data.get('initMargin'))
-        if data.get('maintMargin') is not None:
-            position['maintenanceMargin'] = Decimal(data['maintMargin'])
         if data.get('avgEntryPrice') is not None:
-            position['entryPrice'] = Decimal(data.get('avgEntryPrice'))
+            position['entry_price'] = Decimal(data.get('avgEntryPrice'))
         if data.get('homeNotional') is not None:
-            position['homeNotional'] = Decimal(data.get('homeNotional'))
-        if data.get('foreignNotional') is not None:
-            position['foreignNotional'] = Decimal(data.get('foreignNotional'))
+            position['notional'] = Decimal(data.get('homeNotional'))
         if data.get('leverage') is not None:
             position['leverage'] = Decimal(data.get('leverage'))
         if data.get('unrealisedPnl') is not None:
-            position['unrealizedPnl'] = Decimal(data['unrealisedPnl'])
+            position['unrealized_pnl'] = Decimal(data['unrealisedPnl'])
         if data.get('currentQty') is not None:
             position['contracts'] = Decimal(data.get('currentQty'))
         if data.get('liquidationPrice') is not None:
-            position['liquidationPrice'] = Decimal(data['liquidationPrice'])
+            position['liquidation_price'] = Decimal(data['liquidationPrice'])
         if data.get('markPrice') is not None:
-            position['markPrice'] = Decimal(data['markPrice'])
+            position['mark_price'] = Decimal(data['markPrice'])
+        if data.get('crossMargin') is not None:
+            position['margin_mode'] = 'cross' if data.get('crossMargin') else 'isolated'
         return position
 
-    def parse_margin(self, data):
+    def _parse_balance(self, data: dict[str, Any]) -> dict[str, Any]:
         timestamp = self.timestamp_normalize(data['timestamp'])
         balance = {
             'timestamp': timestamp
         }
         if self.custom_account_id or data.get('account') is not None:
             balance['account'] = self.custom_account_id or data['account']
+        if data.get('walletBalance') is not None:
+            balance['wallet_balance'] = Decimal(data['walletBalance'])
         if data.get('availableMargin') is not None:
-            balance['free'] = Decimal(data['availableMargin'])
+            balance['available_balance'] = Decimal(data['availableMargin'])
         if data.get('marginBalance') is not None:
-            balance['total'] = Decimal(data['marginBalance'])
+            balance['margin_balance'] = Decimal(data['marginBalance'])
+        if data.get('unrealisedPnl') is not None:
+            balance['unrealized_pnl'] = Decimal(data['unrealisedPnl'])
         if data.get('currency') is not None:
             balance['currency'] = self.parse_currency(data['currency'])
         return balance
@@ -762,16 +762,16 @@ class Bitmex(Feed, BitmexRestMixin):
         'lastValue': 394445
         }
         """
-
         for data in msg['data']:
-            parsed_data = self.parse_position(data)
+            parsed_data = self._parse_position(data)
             symbol = parsed_data.get('symbol')
             data_to_log = {
                 'feed': self.id,
                 'account': parsed_data.get('account'),
                 'symbol': symbol,
                 'contracts': parsed_data.get('contracts'),
-                'liquidationPrice': parsed_data.get('liquidationPrice')
+                'unrealized_pnl': parsed_data.get('unrealized_pnl'),
+                'liquidation_price': parsed_data.get('liquidation_price'),
                 }
             LOG.info(f"Handle position msg: {data_to_log}")
             await self.callback(POSITIONS, feed=self.id, **parsed_data)
@@ -825,13 +825,14 @@ class Bitmex(Feed, BitmexRestMixin):
         """
 
         for data in msg['data']:
-            parsed_data = self.parse_margin(data)
+            parsed_data = self._parse_balance(data)
             data_to_log = {
                 'feed': self.id,
                 'account': parsed_data.get('account'),
                 'currecny': parsed_data.get('currency'),
-                'total': parsed_data.get('total'),
-                'free': parsed_data.get('free')
+                'wallet_balance': parsed_data.get('wallet_balance'),
+                'margin_balance': parsed_data.get('margin_balance'),
+                'available_balance': parsed_data.get('available_balance')
                 }
             LOG.info(f"Handle margin msg: {data_to_log}")
             await self.callback(BALANCES, feed=self.id, **parsed_data)
