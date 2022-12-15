@@ -10,16 +10,16 @@ from typing import Tuple
 
 from yapic import json
 
-from cryptofeed.defines import BINANCE_DELIVERY, FUNDING, LIQUIDATIONS, OPEN_INTEREST
+from cryptofeed.defines import BINANCECOINM, FUNDING, LIQUIDATIONS, OPEN_INTEREST
 from cryptofeed.exchanges.binance import Binance
-from cryptofeed.exchanges.mixins.binance_rest import BinanceDeliveryRestMixin
+from cryptofeed.exchanges.mixins.binance_rest import BinancecoinmRestMixin
 
 
 LOG = logging.getLogger('feedhandler')
 
 
-class BinanceDelivery(Binance, BinanceDeliveryRestMixin):
-    id = BINANCE_DELIVERY
+class Binancecoinm(Binance, BinancecoinmRestMixin):
+    id = BINANCECOINM
     symbol_endpoint = 'https://dapi.binance.com/dapi/v1/exchangeInfo'
     valid_depths = [5, 10, 20, 50, 100, 500, 1000]
     valid_depth_intervals = {'100ms', '250ms', '500ms'}

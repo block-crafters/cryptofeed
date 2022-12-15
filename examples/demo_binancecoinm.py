@@ -2,10 +2,10 @@ from datetime import datetime
 
 from cryptofeed import FeedHandler
 from cryptofeed.defines import GOOD_TIL_CANCELED, L2_BOOK, LIMIT, SELL, TICKER, TRADES
-from cryptofeed.exchanges import Binance, BinanceDelivery, BinanceFutures
+from cryptofeed.exchanges import Binance, Binancecoinm, BinanceFutures
 
 
-info = BinanceDelivery.info()
+info = Binancecoinm.info()
 
 
 async def abook(feed, symbol, book, timestamp, receipt_timestamp):
@@ -42,19 +42,15 @@ def main():
     print(binance_futures.cancel_order_sync(order['orderId'], symbol='ETH-USDT-PERP'))
     print(binance_futures.orders_sync(symbol='ETH-USDT-PERP'))
 
-    binance_delivery = BinanceDelivery(config=path_to_config)
-    print(binance_delivery.balances_sync())
-    print(binance_delivery.orders_sync())
-    print(binance_delivery.positions_sync())
-    order = binance_delivery.place_order_sync('ETH-USD-PERP', SELL, LIMIT, 0.05, 5000, time_in_force=GOOD_TIL_CANCELED, test=False)
-    print(binance_delivery.orders_sync(symbol='BTC-USDT-PERP'))
-    print(binance_delivery.orders_sync(symbol='ETH-USDT-PERP'))
+    binancecoinm = Binancecoinm(config=path_to_config)
+    print(binancecoinm.balances_sync())
+    print(binancecoinm.orders_sync())
+    print(binancecoinm.positions_sync())
+    order = binancecoinm.place_order_sync('ETH-USD-PERP', SELL, LIMIT, 1, 5000, time_in_force=GOOD_TIL_CANCELED)
     print(order)
-    print(binance_delivery.cancel_order_sync(order['orderId'], symbol='ETH-USDT-PERP'))
-    print(binance_delivery.orders_sync(symbol='ETH-USDT-PERP'))
 
     f = FeedHandler()
-    f.add_feed(BinanceDelivery(max_depth=3, symbols=[info['symbols'][-1]],
+    f.add_feed(Binancecoinm(max_depth=3, symbols=[info['symbols'][-1]],
                                channels=[L2_BOOK, TRADES, TICKER],
                                callbacks={L2_BOOK: abook, TRADES: trades, TICKER: ticker}))
     f.run()

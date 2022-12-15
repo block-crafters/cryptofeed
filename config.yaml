@@ -42,7 +42,7 @@ ftx:
 binance_futures:
     key_id: null
     key_secret: null
-binance_delivery:
+binancecoinm:
     key_id: null
     key_secret: null
 okcoin:
