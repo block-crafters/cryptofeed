@@ -11,7 +11,7 @@ from .phemex import Phemex
 from .ascendex import AscendEX
 from .bequant import Bequant
 from .binance import Binance
-from .binance_delivery import BinanceDelivery
+from .binancecoinm import Binancecoinm
 from .binance_futures import BinanceFutures
 from .binance_us import BinanceUS
 from .bitcoincom import BitcoinCom
@@ -48,7 +48,7 @@ from .upbit import Upbit
 EXCHANGE_MAP: dict[str, Feed] = {
     ASCENDEX: AscendEX,
     BEQUANT: Bequant,
-    BINANCE_DELIVERY: BinanceDelivery,
+    BINANCECOINM: Binancecoinm,
     BINANCE_FUTURES: BinanceFutures,
     BINANCE_US: BinanceUS,
     BINANCE: Binance,

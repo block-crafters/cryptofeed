@@ -4,7 +4,7 @@ from cryptofeed import FeedHandler
 from cryptofeed.defines import L2_BOOK
 from cryptofeed.exchanges.binance import Binance
 from cryptofeed.exchanges.binance_futures import BinanceFutures
-from cryptofeed.exchanges import BinanceDelivery
+from cryptofeed.exchanges import Binancecoinm
 
 
 def timer(interval):
@@ -32,8 +32,8 @@ def main():
                        callbacks={L2_BOOK: timer('1000ms')}))
 
     # default interval is 100ms, '100ms', '250ms', '500ms'
-    f.add_feed(BinanceDelivery(max_depth=1,
-                               symbols=BinanceDelivery.info()['symbols'][:1],
+    f.add_feed(Binancecoinm(max_depth=1,
+                               symbols=Binancecoinm.info()['symbols'][:1],
                                channels=[L2_BOOK],
                                callbacks={L2_BOOK: timer('100ms')}))
     # intervals = '100ms', '250ms', '500ms'

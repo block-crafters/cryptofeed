@@ -1,19 +1,19 @@
 import asyncio
 from decimal import Decimal
 
-from cryptofeed.defines import BINANCE, BINANCE_DELIVERY, BINANCE_FUTURES, BUY, SELL
-from cryptofeed.exchanges import BinanceFutures, BinanceDelivery, Binance
+from cryptofeed.defines import BINANCE, BINANCECOINM, BINANCE_FUTURES, BUY, SELL
+from cryptofeed.exchanges import BinanceFutures, Binancecoinm, Binance
 
 
 b = Binance()
-bd = BinanceDelivery()
+bc = Binancecoinm()
 bf = BinanceFutures()
 
 
 def teardown_module(module):
     asyncio.get_event_loop().run_until_complete(b.shutdown())
     asyncio.get_event_loop().run_until_complete(bf.shutdown())
-    asyncio.get_event_loop().run_until_complete(bd.shutdown())
+    asyncio.get_event_loop().run_until_complete(bc.shutdown())
 
 
 class TestBinanceRest:
@@ -76,13 +76,13 @@ class TestBinanceRest:
         expected = {'timestamp': 1609459200.567,
                     'symbol': 'BTC-USD-PERP',
                     'id': 8411339,
-                    'feed': BINANCE_DELIVERY,
+                    'feed': BINANCECOINM,
                     'side': SELL,
                     'amount': Decimal('13'),
                     'price': Decimal('28950.4')}
 
         ret = []
-        for data in bd.trades_sync('BTC-USD-PERP', start='2021-01-01 00:00:00', end='2021-01-01 0:00:01'):
+        for data in bc.trades_sync('BTC-USD-PERP', start='2021-01-01 00:00:00', end='2021-01-01 0:00:01'):
             ret.extend(data)
 
         assert len(ret) == 2
@@ -91,7 +91,7 @@ class TestBinanceRest:
 
     def test_bd_trades(self):
         ret = []
-        for data in bd.trades_sync('BTC-USD-PERP', start='2021-01-01 00:00:00', end='2021-01-01 1:00:00'):
+        for data in bc.trades_sync('BTC-USD-PERP', start='2021-01-01 00:00:00', end='2021-01-01 1:00:00'):
             ret.extend(data)
 
         assert len(ret) == 6216

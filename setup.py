@@ -42,7 +42,7 @@ setup(
     keywords=["cryptocurrency", "bitcoin", "btc", "feed handler", "market feed", "market data", "crypto assets",
               "Trades", "Tickers", "BBO", "Funding", "Open Interest", "Liquidation", "Order book", "Bid", "Ask",
               "Bitcoin.com", "Bitfinex", "bitFlyer", "AscendEX", "Bitstamp", "Bittrex", "Blockchain.com", "Bybit",
-              "Binance", "Binance Delivery", "Binance Futures", "Binance US", "BitMEX", "Coinbase", "Deribit", "EXX",
+              "Binance", "Binance Coin-m", "Binance Futures", "Binance US", "BitMEX", "Coinbase", "Deribit", "EXX",
               "FTX", "FTX US", "Gate.io", "Gemini", "HitBTC", "Huobi", "Huobi DM", "Huobi Swap", "Kraken",
               "Kraken Futures", "OKCoin", "OKEx", "Poloniex", "ProBit", "Upbit"],
     url="https://github.com/bmoscon/cryptofeed",

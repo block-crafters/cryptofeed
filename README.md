@@ -20,7 +20,7 @@ Handles multiple cryptocurrency exchange data feeds and returns normalized and s
 * [Blockchain.com](https://www.blockchain.com/)
 * [Bybit](https://www.bybit.com/)
 * [Binance](https://www.binance.com/en)
-* [Binance Delivery](https://binance-docs.github.io/apidocs/delivery/en/)
+* [Binance coin-m](https://binance-docs.github.io/apidocs/delivery/en/)
 * [Binance Futures](https://www.binance.com/en/futures)
 * [Binance US](https://www.binance.us/en)
 * [BitMEX](https://www.bitmex.com/)
