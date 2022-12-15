@@ -73,7 +73,7 @@ class Binance(Feed, BinanceRestMixin):
         candle_closed_only: bool
             return only closed candles, i.e. no updates in between intervals.
         depth_interval: str
-            time between l2_book/delta updates {'100ms', '1000ms'} (different from BINANCE_FUTURES & BINANCE_DELIVERY)
+            time between l2_book/delta updates {'100ms', '1000ms'} (different from BINANCE_FUTURES & BINANCECOINM)
         concurrent_http: bool
             http requests will be made concurrently, if False requests will be made one at a time (affects L2_BOOK, OPEN_INTEREST).
         """

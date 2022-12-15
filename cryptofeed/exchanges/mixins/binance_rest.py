@@ -171,7 +171,7 @@ class BinanceFuturesRestMixin(BinanceRestMixin):
         return data['positions']
 
 
-class BinanceDeliveryRestMixin(BinanceRestMixin):
+class BinancecoinmRestMixin(BinanceRestMixin):
     api = 'https://dapi.binance.com/dapi/v1/'
     rest_channels = (
         TRADES, ORDER_STATUS, CANCEL_ORDER, PLACE_ORDER, BALANCES, ORDERS, POSITIONS
