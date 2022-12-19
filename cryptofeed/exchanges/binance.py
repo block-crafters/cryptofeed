@@ -483,7 +483,14 @@ class Binance(Feed, BinanceRestMixin):
             ]
         }
         """
-        raise NotImplementedError
+        timestamp = self.timestamp_normalize(msg["E"])
+        for balance in msg['B']:
+            data = {
+                "timstamp": timestamp,
+            }
+            data.update(balance)
+            parsed_balance = self._parse_balance(data)
+            await self.callback(BALANCES, feed=self.id, **parsed_balance)
 
     def _parse_balance(self, data: dict[str, Any]) -> dict[str, Any]:
         """
@@ -498,7 +505,15 @@ class Binance(Feed, BinanceRestMixin):
                 }
 
         """
-        raise NotImplementedError
+        balance = {
+            "timestamp": data["timestamp"]
+        }
+        if self.custom_account_id:
+            balance["account"] = self.custom_account_id
+        balance["available_balance"] = Decimal(data["f"])
+        balance["wallet_balance"] = Decimal(data["f"]) + Decimal(data["l"])
+
+        return balance
 
     async def _order_update(self, msg: dict, timestamp: float):
         """
