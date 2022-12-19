@@ -92,7 +92,6 @@ class Binance(Feed, BinanceRestMixin):
         self.candle_interval = candle_interval
         self.candle_closed_only = candle_closed_only
         self.depth_interval = depth_interval
-        self.address = self._address()
         self.concurrent_http = concurrent_http
 
         self.open_interest_cache = {}
@@ -155,6 +154,13 @@ class Binance(Feed, BinanceRestMixin):
 
             return {chunk[0]: address + '/'.join(chunk) for chunk in split_list(subs, 200)}
 
+    def update_address(self):
+        """
+        Binance has different address for each market.
+        So dynamically update self.address before connecting.
+        """
+        self.address = self._address()
+
     def _reset(self):
         self.forced = defaultdict(bool)
         self._l2_book = {}
@@ -177,7 +183,7 @@ class Binance(Feed, BinanceRestMixin):
         """
         Generate listenKey using REST api
         """
-        url = self.rest_endpoint + '/api/v3/userDataStream'
+        url = self._get_listen_key_url()
         r = requests.post(url, headers={'X-MBX-APIKEY': self.key_id})
         r.raise_for_status()
         response = r.json()
@@ -186,6 +192,12 @@ class Binance(Feed, BinanceRestMixin):
             return self._auth_token
         else:
             raise ValueError(f'Unable to retrieve listenKey token from {url}')
+
+    def _get_listen_key_url(self) -> str:
+        """
+        Return listenKey REST api url
+        """
+        return self.rest_endpoint + '/api/v3/userDataStream'
 
     async def _trade(self, msg: dict, timestamp: float):
         """

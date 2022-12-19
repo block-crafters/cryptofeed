@@ -35,7 +35,10 @@ class Binancecoinm(Binance, BinancecoinmRestMixin):
         # overwrite values previously set by the super class Binance
         self.ws_endpoint = 'wss://dstream.binance.com'
         self.rest_endpoint = 'https://dapi.binance.com/dapi/v1'
-        self.address = self._address()
+
+    def _get_listen_key_url(self) -> str:
+        print(self.rest_endpoint)
+        return self.rest_endpoint + '/listenKey'
 
     def _check_update_id(self, pair: str, msg: dict) -> Tuple[bool, bool, bool]:
         skip_update = False
