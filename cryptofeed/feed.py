@@ -134,6 +134,7 @@ class Feed(Exchange):
             self.subscription = {chan: symbols for chan in channels}
 
         self._feed_config = dict(self._feed_config)
+        self._auth_token: str = None
 
         self._l3_book = {}
         self._l2_book = {}

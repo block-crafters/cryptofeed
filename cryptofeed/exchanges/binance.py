@@ -5,16 +5,18 @@ Please see the LICENSE file for the terms and conditions
 associated with this software.
 '''
 import logging
-from asyncio import create_task
+import requests
+from asyncio import create_task, sleep
 from collections import defaultdict, deque
 from decimal import Decimal
-from typing import Dict, Union, Tuple
+from typing import Any, Dict, Union, Tuple
+from urllib.parse import urlencode
 
 from sortedcontainers import SortedDict as sd
 from yapic import json
 
 from cryptofeed.connection import AsyncConnection, HTTPPoll, HTTPConcurrentPoll
-from cryptofeed.defines import BID, ASK, BINANCE, BUY, CANDLES, FUNDING, FUTURES, L2_BOOK, LIQUIDATIONS, OPEN_INTEREST, PERPETUAL, SELL, SPOT, TICKER, TRADES, FILLED, UNFILLED
+from cryptofeed.defines import BID, ASK, BALANCES, BINANCE, BUY, CANDLES, FUNDING, FUTURES, L2_BOOK, LIQUIDATIONS, OPEN_INTEREST, ORDER_INFO, PERPETUAL, SELL, SPOT, TICKER, TRADES, FILLED, UNFILLED
 from cryptofeed.feed import Feed
 from cryptofeed.symbols import Symbol
 from cryptofeed.exchanges.mixins.binance_rest import BinanceRestMixin
@@ -34,7 +36,9 @@ class Binance(Feed, BinanceRestMixin):
         L2_BOOK: 'depth',
         TRADES: 'aggTrade',
         TICKER: 'bookTicker',
-        CANDLES: 'kline_'
+        CANDLES: 'kline_',
+        BALANCES: BALANCES,
+        ORDER_INFO: ORDER_INFO,
     }
     request_limit = 20
 
@@ -84,7 +88,7 @@ class Binance(Feed, BinanceRestMixin):
 
         super().__init__({}, **kwargs)
         self.ws_endpoint = 'wss://stream.binance.com:9443'
-        self.rest_endpoint = 'https://www.binance.com/api/v1'
+        self.rest_endpoint = 'https://api.binance.com'
         self.candle_interval = candle_interval
         self.candle_closed_only = candle_closed_only
         self.depth_interval = depth_interval
@@ -104,12 +108,27 @@ class Binance(Feed, BinanceRestMixin):
         The generic connect method supplied by Feed will take care of creating the
         correct connection objects from the addresses.
         """
-        address = self.ws_endpoint + '/stream?streams='
+        if self.requires_authentication:
+            listen_key = self._generate_token()
+            address = self.ws_endpoint
+            address += '/ws/' + listen_key
+        else:
+            address = self.ws_endpoint
+            address += '/stream?streams='
         subs = []
+
+        is_any_private = any(self.is_authenticated_channel(chan) for chan in self.subscription)
+        is_any_public = any(not self.is_authenticated_channel(chan) for chan in self.subscription)
+        if is_any_private and is_any_public:
+            raise ValueError("Private channels should be subscribed in separate feeds vs public channels")
+        if all(self.is_authenticated_channel(chan) for chan in self.subscription):
+            return address
 
         for chan in self.subscription:
             normalized_chan = self.exchange_channel_to_std(chan)
             if normalized_chan == OPEN_INTEREST:
+                continue
+            if self.is_authenticated_channel(normalized_chan):
                 continue
 
             stream = chan
@@ -144,6 +163,29 @@ class Binance(Feed, BinanceRestMixin):
         if self.concurrent_http:
             # buffer 'depthUpdate' book msgs until snapshot is fetched
             self._book_buffer: Dict[str, deque[Tuple[dict, str, float]]] = {}
+
+    async def _refresh_token(self):
+        while True:
+            await sleep(30 * 60)
+            if self._auth_token is None:
+                raise ValueError('There is no token to refresh')
+            payload = {'listenKey': self._auth_token}
+            r = requests.put(f'{self.rest_endpoint}?{urlencode(payload)}', headers={'X-MBX-APIKEY': self.key_id})
+            r.raise_for_status()
+
+    def _generate_token(self) -> str:
+        """
+        Generate listenKey using REST api
+        """
+        url = self.rest_endpoint + '/api/v3/userDataStream'
+        r = requests.post(url, headers={'X-MBX-APIKEY': self.key_id})
+        r.raise_for_status()
+        response = r.json()
+        if 'listenKey' in response:
+            self._auth_token = response['listenKey']
+            return self._auth_token
+        else:
+            raise ValueError(f'Unable to retrieve listenKey token from {url}')
 
     async def _trade(self, msg: dict, timestamp: float):
         """
@@ -426,8 +468,87 @@ class Binance(Feed, BinanceRestMixin):
                             volume=Decimal(msg['k']['v']),
                             closed=msg['k']['x'])
 
+    async def _account_update(self, msg: dict, timestamp: float):
+        """
+        {
+            "e": "outboundAccountPosition", //Event type
+            "E": 1564034571105,             //Event Time
+            "u": 1564034571073,             //Time of last account update
+            "B": [                          //Balances Array
+                {
+                "a": "ETH",                 //Asset
+                "f": "10000.000000",        //Free
+                "l": "0.000000"             //Locked
+                }
+            ]
+        }
+        """
+        raise NotImplementedError
+
+    def _parse_balance(self, data: dict[str, Any]) -> dict[str, Any]:
+        """
+        Parse balance raw data
+        
+        Reference:
+            data format:
+                {
+                    "a": "ETH",                 //Asset
+                    "f": "10000.000000",        //Free
+                    "l": "0.000000"             //Locked
+                }
+
+        """
+        raise NotImplementedError
+
+    async def _order_update(self, msg: dict, timestamp: float):
+        """
+        {
+            "e": "executionReport",        // Event type
+            "E": 1499405658658,            // Event time
+            "s": "ETHBTC",                 // Symbol
+            "c": "mUvoqJxFIILMdfAW5iGSOW", // Client order ID
+            "S": "BUY",                    // Side
+            "o": "LIMIT",                  // Order type
+            "f": "GTC",                    // Time in force
+            "q": "1.00000000",             // Order quantity
+            "p": "0.10264410",             // Order price
+            "P": "0.00000000",             // Stop price
+            "F": "0.00000000",             // Iceberg quantity
+            "g": -1,                       // OrderListId
+            "C": "",                       // Original client order ID; This is the ID of the order being canceled
+            "x": "NEW",                    // Current execution type
+            "X": "NEW",                    // Current order status
+            "r": "NONE",                   // Order reject reason; will be an error code.
+            "i": 4293153,                  // Order ID
+            "l": "0.00000000",             // Last executed quantity
+            "z": "0.00000000",             // Cumulative filled quantity
+            "L": "0.00000000",             // Last executed price
+            "n": "0",                      // Commission amount
+            "N": null,                     // Commission asset
+            "T": 1499405658657,            // Transaction time
+            "t": -1,                       // Trade ID
+            "I": 8641984,                  // Ignore
+            "w": true,                     // Is the order on the book?
+            "m": false,                    // Is this trade the maker side?
+            "M": false,                    // Ignore
+            "O": 1499405658657,            // Order creation time
+            "Z": "0.00000000",             // Cumulative quote asset transacted quantity
+            "Y": "0.00000000",             // Last quote asset transacted quantity (i.e. lastPrice * lastQty)
+            "Q": "0.00000000"              // Quote Order Qty
+        }
+        """
+        raise NotImplementedError
+
     async def message_handler(self, msg: str, conn, timestamp: float):
         msg = json.loads(msg, parse_float=Decimal)
+
+        if self.requires_authentication:
+            msg_type = msg['e']
+            if msg_type == 'outboundAccountPosition':
+                await self._account_update(msg, timestamp)
+            elif msg_type == 'executionReport':
+                await self._order_update(msg, timestamp)
+            return
 
         # Combined stream events are wrapped as follows: {"stream":"<streamName>","data":<rawPayload>}
         # streamName is of format <symbol>@<channel>
@@ -460,3 +581,5 @@ class Binance(Feed, BinanceRestMixin):
             self.open_interest_cache = {}
         else:
             self._reset()
+        if self.requires_authentication:
+            create_task(self._refresh_token())
