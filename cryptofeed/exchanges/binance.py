@@ -486,7 +486,7 @@ class Binance(Feed, BinanceRestMixin):
         timestamp = self.timestamp_normalize(msg["E"])
         for balance in msg['B']:
             data = {
-                "timstamp": timestamp,
+                "timestamp": timestamp,
             }
             data.update(balance)
             parsed_balance = self._parse_balance(data)
@@ -510,6 +510,7 @@ class Binance(Feed, BinanceRestMixin):
         }
         if self.custom_account_id:
             balance["account"] = self.custom_account_id
+        balance["currency"] = data["a"]
         balance["available_balance"] = Decimal(data["f"])
         balance["wallet_balance"] = Decimal(data["f"]) + Decimal(data["l"])
 
@@ -552,7 +553,70 @@ class Binance(Feed, BinanceRestMixin):
             "Q": "0.00000000"              // Quote Order Qty
         }
         """
-        raise NotImplementedError
+        parsed_order = self.parse_order(msg)
+
+        await self.callback(ORDER_INFO, feed=self.id, receipt_timestamp=timestamp, **parsed_order)
+
+    def parse_order(self, data: dict[str, Any]) -> dict[str, Any]:
+        """
+        Parse raw format data of order
+        """
+        timestamp = self.timestamp_normalize(data['E'])
+        order = {
+            'order_id': data['i'],
+            'timestamp': timestamp
+        }
+        if data.get('s') is not None:
+            order['symbol'] = self.exchange_symbol_to_std_symbol(data['s'])
+        if data.get('S'):
+            order['side'] = BUY if data['S'] == 'BUY' else SELL
+        if data.get('X'):
+            order['status'] = self.parse_order_status(data['X'])
+
+        order['account'] = self.custom_account_id
+        if data.get('q') is not None:
+            order['amount'] = Decimal(data['q'])
+        if data.get('z') is not None:
+            order['filled'] = Decimal(data['z'])
+        if order.get('amount') is not None and order.get("filled"):
+            order['remaining'] = max(order.get('amount') - order.get("filled"), 0)
+        if data.get('p') is not None:
+            order['price'] = Decimal(data['p'])
+        if data.get('ap') is not None:
+            order['average'] = Decimal(data.get('ap'))
+        if data.get('C') is not None:
+            order['clientOrderId'] = data.get('C')
+        if data.get('o') is not None:
+            order['type'] = data.get('o').lower() if data.get('o') else None
+        if data.get('f') is not None:
+            timeInForce = data.get('f')
+            if timeInForce == 'GTX':
+            # GTX means "Good Till Crossing" and is an equivalent way of saying Post Only
+                timeInForce = 'PO'
+            order['timeInForce'] = timeInForce
+
+        return order
+
+    @staticmethod
+    def parse_order_status(status: str) -> str:
+        """
+        References:
+            refer order status part.
+            https://binance-docs.github.io/apidocs/spot/en/#public-api-definitions
+        """
+
+        statuses = {
+            'NEW': 'open',
+            'PARTIALLY_FILLED': 'open',
+            'FILLED': 'closed',
+            'CANCELED': 'canceled',
+            'PENDING_CANCEL': 'canceling',
+            'REJECTED': 'rejected',
+            'EXPIRED': 'expired',
+        }
+
+        ret = statuses.get(status, status)
+        return ret
 
     async def message_handler(self, msg: str, conn, timestamp: float):
         msg = json.loads(msg, parse_float=Decimal)
