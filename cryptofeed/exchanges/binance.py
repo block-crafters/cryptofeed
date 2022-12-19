@@ -553,6 +553,7 @@ class Binance(Feed, BinanceRestMixin):
             "Q": "0.00000000"              // Quote Order Qty
         }
         """
+        # TODO(Boseok): Check the format of batchOrders
         parsed_order = self.parse_order(msg)
 
         await self.callback(ORDER_INFO, feed=self.id, receipt_timestamp=timestamp, **parsed_order)
