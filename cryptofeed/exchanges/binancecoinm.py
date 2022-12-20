@@ -6,11 +6,11 @@ associated with this software.
 '''
 from decimal import Decimal
 import logging
-from typing import Tuple
+from typing import Any, Tuple
 
 from yapic import json
 
-from cryptofeed.defines import BINANCECOINM, FUNDING, LIQUIDATIONS, OPEN_INTEREST
+from cryptofeed.defines import BINANCECOINM, FUNDING, LIQUIDATIONS, OPEN_INTEREST, POSITIONS, BUY, SELL
 from cryptofeed.exchanges.binance import Binance
 from cryptofeed.exchanges.mixins.binance_rest import BinancecoinmRestMixin
 
@@ -27,7 +27,8 @@ class Binancecoinm(Binance, BinancecoinmRestMixin):
         **Binance.websocket_channels,
         FUNDING: 'markPrice',
         OPEN_INTEREST: 'open_interest',
-        LIQUIDATIONS: 'forceOrder'
+        LIQUIDATIONS: 'forceOrder',
+        POSITIONS: POSITIONS,
     }
 
     def __init__(self, **kwargs):
@@ -37,7 +38,9 @@ class Binancecoinm(Binance, BinancecoinmRestMixin):
         self.rest_endpoint = 'https://dapi.binance.com/dapi/v1'
 
     def _get_listen_key_url(self) -> str:
-        print(self.rest_endpoint)
+        """
+        Return listenKey REST api call url
+        """
         return self.rest_endpoint + '/listenKey'
 
     def _check_update_id(self, pair: str, msg: dict) -> Tuple[bool, bool, bool]:
@@ -58,9 +61,104 @@ class Binancecoinm(Binance, BinancecoinmRestMixin):
             skip_update = True
         return skip_update, forced, current_match
 
+    async def _account_update(self, msg: dict, timestamp: float):
+        pass
+
+    def parse_order(self, data: dict[str, Any]) -> dict[str, Any]:
+        """
+        {
+            "e":"ORDER_TRADE_UPDATE",     // Event Type
+            "E":1591274595442,            // Event Time
+            "T":1591274595453,            // Transaction Time
+            "i":"SfsR",                   // Account Alias
+            "o":
+            {
+                "s":"BTCUSD_200925",        // Symbol
+                "c":"TEST",                 // Client Order Id
+                // special client order id:
+                // starts with "autoclose-": liquidation order
+                // "adl_autoclose": ADL auto close order
+                "S":"SELL",                 // Side
+                "o":"TRAILING_STOP_MARKET", // Order Type
+                "f":"GTC",                  // Time in Force
+                "q":"2",                    // Original Quantity
+                "p":"0",                    // Original Price
+                "ap":"0",                   // Average Price
+                "sp":"9103.1",              // Stop Price. Please ignore with TRAILING_STOP_MARKET order
+                "x":"NEW",                  // Execution Type
+                "X":"NEW",                  // Order Status
+                "i":8888888,                // Order Id
+                "l":"0",                    // Order Last Filled Quantity
+                "z":"0",                    // Order Filled Accumulated Quantity
+                "L":"0",                    // Last Filled Price
+                "ma": "BTC",                // Margin Asset
+                "N":"BTC",                  // Commission Asset of the trade, will not push if no commission
+                "n":"0",                    // Commission of the trade, will not push if no commission
+                "T":1591274595442,          // Order Trade Time
+                "t":0,                      // Trade Id
+                "rp": "0",                  // Realized Profit of the trade
+                "b":"0",                    // Bid quantity of base asset
+                "a":"0",                    // Ask quantity of base asset
+                "m":false,                  // Is this trade the maker side?
+                "R":false,                  // Is this reduce only
+                "wt":"CONTRACT_PRICE",      // Stop Price Working Type
+                "ot":"TRAILING_STOP_MARKET",// Original Order Type
+                "ps":"LONG",                // Position Side
+                "cp":false,                 // If Close-All, pushed with conditional order
+                "AP":"9476.8",              // Activation Price, only puhed with TRAILING_STOP_MARKET order
+                "cr":"5.0",                 // Callback Rate, only puhed with TRAILING_STOP_MARKET order
+                "pP": false                 // If conditional order trigger is protected
+            }
+        }
+        """
+        timestamp = self.timestamp_normalize(data['E'])
+        order_data: dict[str, Any] = data['o']
+        order = {
+            'order_id': order_data['i'],
+            'timestamp': timestamp
+        }
+        if order_data.get('s') is not None:
+            order['symbol'] = self.exchange_symbol_to_std_symbol(order_data['s'])
+        if order_data.get('S'):
+            order['side'] = BUY if order_data['S'] == 'BUY' else SELL
+        if order_data.get('X'):
+            order['status'] = self.parse_order_status(order_data['X'])
+
+        order['account'] = self.custom_account_id or data.get('i')
+        if order_data.get('q') is not None:
+            order['amount'] = Decimal(order_data['q'])
+        if order_data.get('z') is not None:
+            order['filled'] = Decimal(order_data['z'])
+        if order.get('amount') is not None and order.get("filled") is not None:
+            order['remaining'] = max(order.get('amount') - order.get("filled"), 0)
+        if order_data.get('p') is not None:
+            order['price'] = Decimal(order_data['p'])
+        if order_data.get('ap') is not None:
+            order['average'] = Decimal(order_data.get('ap'))
+        if order_data.get('c') is not None:
+            order['clientOrderId'] = order_data.get('c')
+        if order_data.get('o') is not None:
+            order['type'] = order_data.get('o').lower() if order_data.get('o') else None
+        if order_data.get('f') is not None:
+            timeInForce = order_data.get('f')
+            if timeInForce == 'GTX':
+            # GTX means "Good Till Crossing" and is an equivalent way of saying Post Only
+                timeInForce = 'PO'
+            order['timeInForce'] = timeInForce
+
+        return order
+
     async def message_handler(self, msg: str, conn, timestamp: float):
         msg = json.loads(msg, parse_float=Decimal)
 
+        # Handle account updates from User Data Stream
+        if self.requires_authentication:
+            msg_type = msg.get('e')
+            if msg_type == 'ACCOUNT_UPDATE':
+                await self._account_update(msg, timestamp)
+            elif msg_type == 'ORDER_TRADE_UPDATE':
+                await self._order_update(msg, timestamp)
+            return
         # Combined stream events are wrapped as follows: {"stream":"<streamName>","data":<rawPayload>}
         # streamName is of format <symbol>@<channel>
         pair, _ = msg['stream'].split('@', 1)
