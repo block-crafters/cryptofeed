@@ -10,7 +10,7 @@ from typing import Any, Tuple
 
 from yapic import json
 
-from cryptofeed.defines import BINANCECOINM, FUNDING, LIQUIDATIONS, OPEN_INTEREST, POSITIONS, BUY, SELL
+from cryptofeed.defines import BINANCECOINM, FUNDING, LIQUIDATIONS, OPEN_INTEREST, POSITIONS, BUY, SELL, BALANCES
 from cryptofeed.exchanges.binance import Binance
 from cryptofeed.exchanges.mixins.binance_rest import BinancecoinmRestMixin
 
@@ -61,8 +61,91 @@ class Binancecoinm(Binance, BinancecoinmRestMixin):
             skip_update = True
         return skip_update, forced, current_match
 
+    def _parse_balance(self, data: dict) -> dict:
+        """
+        Parse balance raw data to a format 
+        """
+        # TODO(Boseok): Fill out parsing code
+        print(data)
+        parsed_balance: dict = {}
+        return parsed_balance
+    
+    def _parse_position(self, data: dict) -> dict:
+        """
+        Parse position raw data to a format
+        """
+        # TODO(Boseok): Fill out parsing code
+        print(data)
+        parsed_position: dict = {}
+        return parsed_position
+
     async def _account_update(self, msg: dict, timestamp: float):
-        pass
+        """
+        {
+            "e": "ACCOUNT_UPDATE",            // Event Type
+            "E": 1564745798939,               // Event Time
+            "T": 1564745798938 ,              // Transaction
+            "i": "SfsR",                      // Account Alias
+            "a":{                             // Update Data
+                "m":"ORDER",                  // Event reason type
+                "B":[                         // Balances
+                    {
+                        "a":"BTC",                // Asset
+                        "wb":"122624.12345678",   // Wallet Balance
+                        "cw":"100.12345678"       // Cross Wallet Balance
+                    },
+                    {
+                        "a":"ETH",
+                        "wb":"1.00000000",
+                        "cw":"0.00000000"
+                    }
+                ],
+                "P":[
+                    {
+                        "s":"BTCUSD_200925",      // Symbol
+                        "pa":"0",                 // Position Amount
+                        "ep":"0.0",               // Entry Price
+                        "cr":"200",               // (Pre-fee) Accumulated Realized
+                        "up":"0",                 // Unrealized PnL
+                        "mt":"isolated",          // Margin Type
+                        "iw":"0.00000000",        // Isolated Wallet (if isolated position)
+                        "ps":"BOTH"               // Position Side
+                    },
+                    {
+                        "s":"BTCUSD_200925",
+                        "pa":"20",
+                        "ep":"6563.6",
+                        "cr":"0",
+                        "up":"2850.21200000",
+                        "mt":"isolated",
+                        "iw":"13200.70726908",
+                        "ps":"LONG"
+                    },
+                    {
+                        "s":"BTCUSD_200925",
+                        "pa":"-10",
+                        "ep":"6563.8",
+                        "cr":"-45.04000000",
+                        "up":"-1423.15600000",
+                        "mt":"isolated",
+                        "iw":"6570.42511771",
+                        "ps":"SHORT"
+                    }
+                ]
+            }
+        }
+        """
+        account_data: dict = msg['a']
+        balances_data: dict = account_data['B']
+        positions_data: dict = account_data['P']
+
+        for balance in balances_data:
+            parsed_balance = self._parse_balance(balance)
+            await self.callback(BALANCES, feed=self.id, **parsed_balance)
+        for position in positions_data:
+            parsed_position = self._parse_position(position)
+            await self.callback(POSITIONS, feed=self.id, **parsed_position)
+
 
     def parse_order(self, data: dict[str, Any]) -> dict[str, Any]:
         """
