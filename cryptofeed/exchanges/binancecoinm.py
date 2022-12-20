@@ -63,20 +63,53 @@ class Binancecoinm(Binance, BinancecoinmRestMixin):
 
     def _parse_balance(self, data: dict) -> dict:
         """
-        Parse balance raw data to a format 
+        Parse balance raw data to a format
+
+        Reference:
+            balance raw data
+            {
+                "a":"BTC",                // Asset
+                "wb":"122624.12345678",   // Wallet Balance
+                "cw":"100.12345678"       // Cross Wallet Balance
+            }
         """
-        # TODO(Boseok): Fill out parsing code
-        print(data)
         parsed_balance: dict = {}
+        if data.get('a'):
+            parsed_balance['currency'] = data['a']
+        if data.get('wb') is not None:
+            parsed_balance['wallet_balance'] = Decimal(data['wb'])
         return parsed_balance
     
     def _parse_position(self, data: dict) -> dict:
         """
         Parse position raw data to a format
+
+        Reference:
+            position raw data
+            {
+                "s":"BTCUSD_200925",      // Symbol
+                "pa":"0",                 // Position Amount
+                "ep":"0.0",               // Entry Price
+                "cr":"200",               // (Pre-fee) Accumulated Realized
+                "up":"0",                 // Unrealized PnL
+                "mt":"isolated",          // Margin Type
+                "iw":"0.00000000",        // Isolated Wallet (if isolated position)
+                "ps":"BOTH"               // Position Side
+            }
         """
-        # TODO(Boseok): Fill out parsing code
-        print(data)
         parsed_position: dict = {}
+        if data.get('s'):
+            parsed_position['symbol'] = self.exchange_symbol_to_std_symbol(data['s'])
+        if data.get('ep') is not None:
+            parsed_position['entry_price'] = Decimal(data['ep'])
+        if data.get('up') is not None:
+            parsed_position['unrealized_pnl'] = Decimal(data['up'])
+        if data.get('pa') is not None:
+            # NOTE: pa(position amount) is signed value.
+            parsed_position['contracts'] = Decimal(data['pa'])
+        # NOTE(Boseok): liquidation price is not included in websocket data.
+        if data.get('mt'):
+            parsed_position['margin_mode'] = 'cross' if data['mt'] == 'CROSSED' else 'isolated'
         return parsed_position
 
     async def _account_update(self, msg: dict, timestamp: float):
@@ -135,17 +168,28 @@ class Binancecoinm(Binance, BinancecoinmRestMixin):
             }
         }
         """
+        timestamp: float = self.timestamp_normalize(msg['E'])
+        account_id: str = self.custom_account_id or msg['i']
         account_data: dict = msg['a']
         balances_data: dict = account_data['B']
         positions_data: dict = account_data['P']
 
         for balance in balances_data:
+            data = {
+                'account': account_id,
+                'timestamp': timestamp,
+            }
             parsed_balance = self._parse_balance(balance)
+            data.update(parsed_balance)
             await self.callback(BALANCES, feed=self.id, **parsed_balance)
         for position in positions_data:
+            data = {
+                'account': account_id,
+                'timestamp': timestamp,
+            }
             parsed_position = self._parse_position(position)
+            data.update(parsed_position)
             await self.callback(POSITIONS, feed=self.id, **parsed_position)
-
 
     def parse_order(self, data: dict[str, Any]) -> dict[str, Any]:
         """
