@@ -591,14 +591,12 @@ class Binance(Feed, BinanceRestMixin):
             order['amount'] = Decimal(data['q'])
         if data.get('z') is not None:
             order['filled'] = Decimal(data['z'])
-        if order.get('amount') is not None and order.get("filled"):
+        if order.get('amount') is not None and order.get("filled") is not None:
             order['remaining'] = max(order.get('amount') - order.get("filled"), 0)
         if data.get('p') is not None:
             order['price'] = Decimal(data['p'])
-        if data.get('ap') is not None:
-            order['average'] = Decimal(data.get('ap'))
-        if data.get('C') is not None:
-            order['clientOrderId'] = data.get('C')
+        if data.get('c') is not None:
+            order['clientOrderId'] = data.get('c')
         if data.get('o') is not None:
             order['type'] = data.get('o').lower() if data.get('o') else None
         if data.get('f') is not None:
