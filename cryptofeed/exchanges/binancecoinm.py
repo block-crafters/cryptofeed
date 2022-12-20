@@ -19,6 +19,10 @@ LOG = logging.getLogger('feedhandler')
 
 
 class Binancecoinm(Binance, BinancecoinmRestMixin):
+    """
+    TODO(Boseok): If data receiving through "ORDER_TRADE_UPDATE" or "ACCOUNT_UPDATE",
+          implement Websocket User Data Request.
+    """
     id = BINANCECOINM
     symbol_endpoint = 'https://dapi.binance.com/dapi/v1/exchangeInfo'
     valid_depths = [5, 10, 20, 50, 100, 500, 1000]

@@ -21,6 +21,9 @@ LOG = logging.getLogger('feedhandler')
 
 
 class BinanceFutures(Binance, BinanceFuturesRestMixin):
+    """
+    TODO: Implement websocket private channels
+    """
     id = BINANCE_FUTURES
     symbol_endpoint = 'https://fapi.binance.com/fapi/v1/exchangeInfo'
     valid_depths = [5, 10, 20, 50, 100, 500, 1000]
