@@ -185,7 +185,7 @@ class Binancecoinm(Binance, BinancecoinmRestMixin):
             }
             parsed_balance = self._parse_balance(balance)
             data.update(parsed_balance)
-            await self.callback(BALANCES, feed=self.id, **parsed_balance)
+            await self.callback(BALANCES, feed=self.id, **data)
         for position in positions_data:
             data = {
                 'account': account_id,
@@ -193,7 +193,7 @@ class Binancecoinm(Binance, BinancecoinmRestMixin):
             }
             parsed_position = self._parse_position(position)
             data.update(parsed_position)
-            await self.callback(POSITIONS, feed=self.id, **parsed_position)
+            await self.callback(POSITIONS, feed=self.id, **data)
 
     def parse_order(self, data: dict[str, Any]) -> dict[str, Any]:
         """
@@ -245,7 +245,7 @@ class Binancecoinm(Binance, BinancecoinmRestMixin):
         timestamp = self.timestamp_normalize(data['E'])
         order_data: dict[str, Any] = data['o']
         order = {
-            'order_id': order_data['i'],
+            'order_id': str(order_data['i']),
             'timestamp': timestamp
         }
         if order_data.get('s') is not None:

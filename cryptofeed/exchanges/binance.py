@@ -218,7 +218,7 @@ class Binance(Feed, BinanceRestMixin):
         price = Decimal(msg['p'])
         amount = Decimal(msg['q'])
         await self.callback(TRADES, feed=self.id,
-                            order_id=msg['a'],
+                            order_id=str(msg['a']),
                             symbol=self.exchange_symbol_to_std_symbol(msg['s']),
                             side=SELL if msg['m'] else BUY,
                             amount=amount,
@@ -576,7 +576,7 @@ class Binance(Feed, BinanceRestMixin):
         """
         timestamp = self.timestamp_normalize(data['E'])
         order = {
-            'order_id': data['i'],
+            'order_id': str(data['i']),
             'timestamp': timestamp
         }
         if data.get('s') is not None:
