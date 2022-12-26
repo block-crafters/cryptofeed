@@ -175,8 +175,8 @@ class Binancecoinm(Binance, BinancecoinmRestMixin):
         timestamp: float = self.timestamp_normalize(msg['E'])
         account_id: str = self.custom_account_id or msg['i']
         account_data: dict = msg['a']
-        balances_data: dict = account_data['B']
-        positions_data: dict = account_data['P']
+        balances_data: list[dict] = account_data['B']
+        positions_data: list[dict] = account_data['P']
 
         for balance in balances_data:
             data = {
