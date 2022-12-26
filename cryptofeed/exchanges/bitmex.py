@@ -113,7 +113,7 @@ class Bitmex(Feed, BitmexRestMixin):
         if data.get('execInst') is not None:
             order['postOnly'] = (data.get('execInst')=='ParticipateDoNotInitiate')
         if data.get('ordType') is not None:
-            order['orderType'] = data.get('ordType')
+            order['type'] = data.get('ordType')
         if data.get('cost') is not None:
             order['cost'] = data.get('cost')
         if data.get('fee') is not None:

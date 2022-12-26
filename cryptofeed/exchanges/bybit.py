@@ -404,7 +404,7 @@ class Bybit(Feed):
         if data.get('cum_exec_qty') is not None:
             order['filled'] = Decimal(data.get('cum_exec_qty'))
         if data.get('order_type') is not None:
-            order['orderType'] = data['order_type']
+            order['type'] = data['order_type']
         order['lastTradeTimestamp'] = order["timestamp"]
 
         return order

@@ -134,6 +134,7 @@ class Feed(Exchange):
             self.subscription = {chan: symbols for chan in channels}
 
         self._feed_config = dict(self._feed_config)
+        self._auth_token: str = None
 
         self._l3_book = {}
         self._l2_book = {}
@@ -173,6 +174,12 @@ class Feed(Exchange):
     async def _empty_subscribe(self, conn: AsyncConnection, **kwargs):
         return
 
+    def update_address(self):
+        """
+        If you need to dynamically calculate the address before connecting, overload this method in the exchange object.
+        """
+        return None
+
     def connect(self) -> List[Tuple[AsyncConnection, Callable[[None], None], Callable[[str, float], None]]]:
         """
         Generic connection method for exchanges. Exchanges that require/support
@@ -186,6 +193,7 @@ class Feed(Exchange):
         3. the message handler for this connection
         """
         ret = []
+        self.update_address()
         if isinstance(self.address, str):
             return [(WSAsyncConn(self.address, self.id, **self.ws_defaults), self.subscribe, self.message_handler, self.authenticate)]
 

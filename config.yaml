@@ -42,6 +42,9 @@ ftx:
 binance_futures:
     key_id: null
     key_secret: null
+binance:
+    key_id: null
+    key_secret: null
 binancecoinm:
     key_id: null
     key_secret: null
