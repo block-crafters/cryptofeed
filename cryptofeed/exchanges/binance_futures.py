@@ -21,6 +21,9 @@ LOG = logging.getLogger('feedhandler')
 
 
 class BinanceFutures(Binance, BinanceFuturesRestMixin):
+    """
+    TODO: Implement websocket private channels
+    """
     id = BINANCE_FUTURES
     symbol_endpoint = 'https://fapi.binance.com/fapi/v1/exchangeInfo'
     valid_depths = [5, 10, 20, 50, 100, 500, 1000]
@@ -52,7 +55,6 @@ class BinanceFutures(Binance, BinanceFuturesRestMixin):
         # overwrite values previously set by the super class Binance
         self.ws_endpoint = 'wss://fstream.binance.com'
         self.rest_endpoint = 'https://fapi.binance.com/fapi/v1'
-        self.address = self._address()
 
         self.open_interest_interval = open_interest_interval
 
