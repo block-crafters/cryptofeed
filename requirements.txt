@@ -1,5 +1,5 @@
 requests>=2.18.4
-websockets>=7.0
+websockets>=10.0
 sortedcontainers>=1.5.9
 pyyaml
 aiohttp==3.8.3
