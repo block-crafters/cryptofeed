@@ -190,7 +190,8 @@ class Bitmex(Feed, BitmexRestMixin):
     def parse_currency(currency):
         currencies = {
             'XBt': 'BTC',
-            'USDt': 'USDT'
+            'USDt': 'USDT',
+            'Gwei': 'ETH',
         }
         ret = currencies.get(currency, currency.upper())
         return ret
