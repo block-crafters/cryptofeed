@@ -193,6 +193,14 @@ class Binancecoinm(Binance, BinancecoinmRestMixin):
             }
             parsed_position = self._parse_position(position)
             data.update(parsed_position)
+            data_to_log = {
+                'feed': self.id,
+                'symbol' : data.get('symbol'),
+                'entry_price' : data.get('entry_price'),
+                'unrealized_pnl' : data.get('unrealized_pnl'),
+                'contracts' : data.get('contracts'),
+            }
+            LOG.info(f"Handle position message: {data_to_log}")
             await self.callback(POSITIONS, feed=self.id, **data)
 
     def parse_order(self, data: dict[str, Any]) -> dict[str, Any]:
