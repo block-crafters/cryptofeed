@@ -173,10 +173,12 @@ class Binance(Feed, BinanceRestMixin):
     async def _refresh_token(self):
         while True:
             await sleep(30 * 60)
+            listen_key_url = self._get_listen_key_url()
+            LOG.info("Refresh token")
             if self._auth_token is None:
                 raise ValueError('There is no token to refresh')
             payload = {'listenKey': self._auth_token}
-            r = requests.put(f'{self.rest_endpoint}?{urlencode(payload)}', headers={'X-MBX-APIKEY': self.key_id})
+            r = requests.put(listen_key_url, data=payload, headers={'X-MBX-APIKEY': self.key_id})
             r.raise_for_status()
 
     def _generate_token(self) -> str:
@@ -502,6 +504,7 @@ class Binance(Feed, BinanceRestMixin):
             }
             data.update(balance)
             parsed_balance = self._parse_balance(data)
+            LOG.info(f"Handle balance message: {data_to_log}")
             await self.callback(BALANCES, feed=self.id, **parsed_balance)
 
     def _parse_balance(self, data: dict[str, Any]) -> dict[str, Any]:
@@ -567,7 +570,16 @@ class Binance(Feed, BinanceRestMixin):
         """
         # TODO(Boseok): Check the format of batchOrders
         parsed_order = self.parse_order(msg)
-
+        data_to_log = {
+            'feed': self.id,
+            'timestamp': parsed_order.get('timestamp'),
+            'symbol': parsed_order.get('symbol'), 
+            'order_id': parsed_order.get('order_id'), 
+            'status': parsed_order.get('status'), 
+            'price': parsed_order.get('price'),
+            'amount': parsed_order.get('amount')
+        }
+        LOG.info(f"Handle order message: {data_to_log}")
         await self.callback(ORDER_INFO, feed=self.id, receipt_timestamp=timestamp, **parsed_order)
 
     def parse_order(self, data: dict[str, Any]) -> dict[str, Any]:
