@@ -504,7 +504,7 @@ class Binance(Feed, BinanceRestMixin):
             }
             data.update(balance)
             parsed_balance = self._parse_balance(data)
-            LOG.info(f"Handle balance message: {data_to_log}")
+            LOG.info(f"Handle balance message: {parsed_balance}")
             await self.callback(BALANCES, feed=self.id, **parsed_balance)
 
     def _parse_balance(self, data: dict[str, Any]) -> dict[str, Any]:
