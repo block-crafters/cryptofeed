@@ -130,11 +130,13 @@ class Binancecoinm(Binance, BinancecoinmRestMixin):
                         "a":"BTC",                // Asset
                         "wb":"122624.12345678",   // Wallet Balance
                         "cw":"100.12345678"       // Cross Wallet Balance
+                        "bc":"50.12345678"            // Balance Change except PnL and Commission
                     },
                     {
                         "a":"ETH",
                         "wb":"1.00000000",
                         "cw":"0.00000000"
+                        "bc":"-49.12345678"
                     }
                 ],
                 "P":[

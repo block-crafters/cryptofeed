@@ -295,6 +295,18 @@ class BalancesLatestRedis(RedisHashCallback, BackendBalancesCallback):
             key += f":{symbol}"
         await super().write(feed, symbol, timestamp, receipt_timestamp, data, key)
 
+    async def writer(self):
+        while True:
+            async with self.read_many_queue() as updates, self.redis.pipeline(transaction=False) as pipe:
+                for update in updates:
+                    key = update['key']
+                    data = update['data']
+                    currency = data['currency']
+                    convert_to_str(data)
+                    pipe = pipe.hmset(key, data)
+                    pipe = self.set_timestamp(pipe, key.replace(":" + currency, ""))
+                await pipe.execute()
+
 
 class BalancesStream(RedisStreamCallback, BackendBalancesCallback):
     """
@@ -324,6 +336,18 @@ class BalancesStream(RedisStreamCallback, BackendBalancesCallback):
         if symbol is not None:
             key += f":{symbol}"
         await super().write(feed, symbol, timestamp, receipt_timestamp, data, key)
+
+    async def writer(self):
+        while True:
+            async with self.read_many_queue() as updates, self.redis.pipeline(transaction=False) as pipe:
+                for update in updates:
+                    key: str = update['key']
+                    data = update['data']
+                    currency = data['currency']
+                    convert_to_str(data)
+                    pipe = pipe.xadd(key, data)
+                    pipe = self.set_timestamp(pipe, key.replace(":" + currency, ""))
+                await pipe.execute()
 
 
 class OrderInfoLatestRedis(RedisHashCallback, BackendOrderInfoCallback):
