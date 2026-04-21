@@ -14,7 +14,7 @@ verify_ssl = true
 pyyaml = "*"
 aiohttp = ">=3.6.2"
 requests = ">=2.18.4"
-sortedcontainers = ">=1.5.9"
+sortedcontainers = ">=2.4.0"
 websockets = ">=10.0"
 uvloop = {version = "*", sys_platform = "!= 'windows'"}
 "yapic.json" = ">=1.6.3"    # fast, drop-in replacement of the built-in python.json
